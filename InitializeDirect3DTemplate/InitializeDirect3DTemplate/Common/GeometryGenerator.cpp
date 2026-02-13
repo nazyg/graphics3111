@@ -655,3 +655,362 @@ GeometryGenerator::MeshData GeometryGenerator::CreateQuad(float x, float y, floa
 
     return meshData;
 }
+GeometryGenerator::MeshData GeometryGenerator::CreateCone(float radius, float height, uint32 sliceCount, uint32 stackCount)
+{
+	// A cone is just a cylinder with topRadius = 0.
+	return CreateCylinder(radius, 0.0f, height, sliceCount, stackCount);
+}
+
+GeometryGenerator::MeshData GeometryGenerator::CreateTorus(float majorRadius, uint32 sliceCount, uint32 stackCount)
+{
+	MeshData meshData;
+
+	// Minor (tube) radius: keep it smaller than major radius.
+	const float minorRadius = majorRadius * 0.30f;
+
+	// We build a grid of (stackCount+1) by (sliceCount+1) vertices.
+	// u: around the ring, v: around the tube.
+	const uint32 ringSegs = sliceCount;
+	const uint32 tubeSegs = stackCount;
+
+	for (uint32 i = 0; i <= tubeSegs; ++i)
+	{
+		const float v = (float)i / tubeSegs;         // 0..1
+		const float phi = v * XM_2PI;                // 0..2pi
+
+		const float cosPhi = cosf(phi);
+		const float sinPhi = sinf(phi);
+
+		for (uint32 j = 0; j <= ringSegs; ++j)
+		{
+			const float u = (float)j / ringSegs;     // 0..1
+			const float theta = u * XM_2PI;
+
+			const float cosTheta = cosf(theta);
+			const float sinTheta = sinf(theta);
+
+			// Position (y is up)
+			const float x = (majorRadius + minorRadius * cosPhi) * cosTheta;
+			const float z = (majorRadius + minorRadius * cosPhi) * sinTheta;
+			const float y = minorRadius * sinPhi;
+
+			// Normal: from tube center to surface
+			const float cx = majorRadius * cosTheta;
+			const float cz = majorRadius * sinTheta;
+			XMFLOAT3 normal(x - cx, y - 0.0f, z - cz);
+
+			XMVECTOR n = XMLoadFloat3(&normal);
+			n = XMVector3Normalize(n);
+			XMStoreFloat3(&normal, n);
+
+			// Tangent (approx along theta direction)
+			XMFLOAT3 tangent(-sinTheta, 0.0f, cosTheta);
+
+			// UV
+			XMFLOAT2 uv(u, v);
+
+			meshData.Vertices.emplace_back(
+				XMFLOAT3(x, y, z),
+				normal,
+				tangent,
+				uv
+			);
+		}
+	}
+
+	// Indices
+	const uint32 stride = ringSegs + 1;
+
+	for (uint32 i = 0; i < tubeSegs; ++i)
+	{
+		for (uint32 j = 0; j < ringSegs; ++j)
+		{
+			const uint32 a = i * stride + j;
+			const uint32 b = (i + 1) * stride + j;
+			const uint32 c = (i + 1) * stride + (j + 1);
+			const uint32 d = i * stride + (j + 1);
+
+			// Two triangles: (a,b,c) and (a,c,d)
+			meshData.Indices32.push_back(a);
+			meshData.Indices32.push_back(b);
+			meshData.Indices32.push_back(c);
+
+			meshData.Indices32.push_back(a);
+			meshData.Indices32.push_back(c);
+			meshData.Indices32.push_back(d);
+		}
+	}
+
+	return meshData;
+}
+GeometryGenerator::MeshData GeometryGenerator::CreatePyramid(float width, float height, float depth)
+{
+	MeshData meshData;
+
+	const float w2 = 0.5f * width;
+	const float h2 = 0.5f * height;
+	const float d2 = 0.5f * depth;
+
+	// Base corners (y = -h2)
+	XMFLOAT3 p0(-w2, -h2, -d2);
+	XMFLOAT3 p1(+w2, -h2, -d2);
+	XMFLOAT3 p2(+w2, -h2, +d2);
+	XMFLOAT3 p3(-w2, -h2, +d2);
+
+	// Apex (y = +h2)
+	XMFLOAT3 apex(0.0f, +h2, 0.0f);
+
+	// Helper to compute face normal
+	auto faceNormal = [](const XMFLOAT3& a, const XMFLOAT3& b, const XMFLOAT3& c) -> XMFLOAT3
+		{
+			XMVECTOR A = XMLoadFloat3(&a);
+			XMVECTOR B = XMLoadFloat3(&b);
+			XMVECTOR C = XMLoadFloat3(&c);
+			XMVECTOR n = XMVector3Cross(B - A, C - A);
+			n = XMVector3Normalize(n);
+			XMFLOAT3 out;
+			XMStoreFloat3(&out, n);
+			return out;
+		};
+
+	// We duplicate vertices per face to keep normals clean.
+
+	// Base (two triangles) normal points downward
+	XMFLOAT3 nBase(0.0f, -1.0f, 0.0f);
+	XMFLOAT3 tBase(1.0f, 0.0f, 0.0f);
+
+	uint32 baseStart = (uint32)meshData.Vertices.size();
+	meshData.Vertices.emplace_back(p0, nBase, tBase, XMFLOAT2(0, 1));
+	meshData.Vertices.emplace_back(p1, nBase, tBase, XMFLOAT2(1, 1));
+	meshData.Vertices.emplace_back(p2, nBase, tBase, XMFLOAT2(1, 0));
+	meshData.Vertices.emplace_back(p3, nBase, tBase, XMFLOAT2(0, 0));
+
+	// Indices for base (make sure winding gives outward; base is outward downward)
+	meshData.Indices32.insert(meshData.Indices32.end(), {
+		baseStart + 0, baseStart + 2, baseStart + 1,
+		baseStart + 0, baseStart + 3, baseStart + 2
+		});
+
+	// 4 side faces
+	auto addTriFace = [&](const XMFLOAT3& a, const XMFLOAT3& b, const XMFLOAT3& c)
+		{
+			XMFLOAT3 n = faceNormal(a, b, c);
+			XMFLOAT3 t(1, 0, 0);
+
+			uint32 start = (uint32)meshData.Vertices.size();
+			meshData.Vertices.emplace_back(a, n, t, XMFLOAT2(0, 1));
+			meshData.Vertices.emplace_back(b, n, t, XMFLOAT2(1, 1));
+			meshData.Vertices.emplace_back(c, n, t, XMFLOAT2(0.5f, 0));
+
+			meshData.Indices32.push_back(start + 0);
+			meshData.Indices32.push_back(start + 1);
+			meshData.Indices32.push_back(start + 2);
+		};
+
+	addTriFace(p0, p1, apex);
+	addTriFace(p1, p2, apex);
+	addTriFace(p2, p3, apex);
+	addTriFace(p3, p0, apex);
+
+	return meshData;
+}
+GeometryGenerator::MeshData GeometryGenerator::CreateWedge(float width, float height, float depth)
+{
+	MeshData meshData;
+
+	const float w2 = 0.5f * width;
+	const float h2 = 0.5f * height;
+	const float d2 = 0.5f * depth;
+
+	// Wedge shape:
+	// Left top edge at y=+h2, right top edge at y=-h2 (slanted top).
+	XMFLOAT3 p0(-w2, -h2, -d2); // left-bottom-front
+	XMFLOAT3 p1(+w2, -h2, -d2); // right-bottom-front
+	XMFLOAT3 p2(+w2, -h2, +d2); // right-bottom-back
+	XMFLOAT3 p3(-w2, -h2, +d2); // left-bottom-back
+
+	XMFLOAT3 p4(-w2, +h2, -d2); // left-top-front
+	XMFLOAT3 p5(-w2, +h2, +d2); // left-top-back
+	// right-top points are same as bottom (slant down)
+	XMFLOAT3 p6(+w2, -h2, -d2); // right-top-front (same as p1)
+	XMFLOAT3 p7(+w2, -h2, +d2); // right-top-back  (same as p2)
+
+	auto faceNormal = [](const XMFLOAT3& a, const XMFLOAT3& b, const XMFLOAT3& c) -> XMFLOAT3
+		{
+			XMVECTOR A = XMLoadFloat3(&a);
+			XMVECTOR B = XMLoadFloat3(&b);
+			XMVECTOR C = XMLoadFloat3(&c);
+			XMVECTOR n = XMVector3Cross(B - A, C - A);
+			n = XMVector3Normalize(n);
+			XMFLOAT3 out;
+			XMStoreFloat3(&out, n);
+			return out;
+		};
+
+	auto addQuad = [&](const XMFLOAT3& a, const XMFLOAT3& b, const XMFLOAT3& c, const XMFLOAT3& d)
+		{
+			XMFLOAT3 n = faceNormal(a, b, c);
+			XMFLOAT3 t(1, 0, 0);
+
+			uint32 start = (uint32)meshData.Vertices.size();
+			meshData.Vertices.emplace_back(a, n, t, XMFLOAT2(0, 1));
+			meshData.Vertices.emplace_back(b, n, t, XMFLOAT2(1, 1));
+			meshData.Vertices.emplace_back(c, n, t, XMFLOAT2(1, 0));
+			meshData.Vertices.emplace_back(d, n, t, XMFLOAT2(0, 0));
+
+			meshData.Indices32.insert(meshData.Indices32.end(), {
+				start + 0, start + 1, start + 2,
+				start + 0, start + 2, start + 3
+				});
+		};
+
+	// Bottom
+	addQuad(p0, p1, p2, p3);
+
+	// Back face
+	addQuad(p3, p2, p7, p5);
+
+	// Front face
+	addQuad(p0, p4, p6, p1);
+
+	// Left face (vertical)
+	addQuad(p0, p3, p5, p4);
+
+	// Right face (collapsed height, still a quad but degenerate top = bottom)
+	// This will be a degenerate quad; better to make it a triangle:
+	{
+		XMFLOAT3 n = faceNormal(p1, p6, p7);
+		XMFLOAT3 t(1, 0, 0);
+
+		uint32 start = (uint32)meshData.Vertices.size();
+		meshData.Vertices.emplace_back(p1, n, t, XMFLOAT2(0, 1));
+		meshData.Vertices.emplace_back(p6, n, t, XMFLOAT2(1, 1));
+		meshData.Vertices.emplace_back(p7, n, t, XMFLOAT2(1, 0));
+		meshData.Vertices.emplace_back(p2, n, t, XMFLOAT2(0, 0));
+
+		// This face is essentially the rectangle p1-p2 with no height; keep as quad for consistency
+		meshData.Indices32.insert(meshData.Indices32.end(), {
+			start + 0, start + 1, start + 2,
+			start + 0, start + 2, start + 3
+			});
+	}
+
+	// Top (slanted)
+	addQuad(p4, p5, p7, p6);
+
+	return meshData;
+}
+GeometryGenerator::MeshData GeometryGenerator::CreateDiamond(float radius)
+{
+	MeshData meshData;
+
+	XMFLOAT3 top(0, +radius, 0);
+	XMFLOAT3 bot(0, -radius, 0);
+
+	XMFLOAT3 a(+radius, 0, 0);
+	XMFLOAT3 b(-radius, 0, 0);
+	XMFLOAT3 c(0, 0, +radius);
+	XMFLOAT3 d(0, 0, -radius);
+
+	// We can share vertices; normals are not used in your current shader.
+	meshData.Vertices.emplace_back(top, XMFLOAT3(0, 1, 0), XMFLOAT3(1, 0, 0), XMFLOAT2(0, 0)); //0
+	meshData.Vertices.emplace_back(bot, XMFLOAT3(0, -1, 0), XMFLOAT3(1, 0, 0), XMFLOAT2(0, 1)); //1
+	meshData.Vertices.emplace_back(a, XMFLOAT3(1, 0, 0), XMFLOAT3(0, 0, 1), XMFLOAT2(1, 0)); //2
+	meshData.Vertices.emplace_back(b, XMFLOAT3(-1, 0, 0), XMFLOAT3(0, 0, 1), XMFLOAT2(0, 0)); //3
+	meshData.Vertices.emplace_back(c, XMFLOAT3(0, 0, 1), XMFLOAT3(1, 0, 0), XMFLOAT2(1, 1)); //4
+	meshData.Vertices.emplace_back(d, XMFLOAT3(0, 0, -1), XMFLOAT3(1, 0, 0), XMFLOAT2(0, 1)); //5
+
+	// Top 4 triangles
+	meshData.Indices32.insert(meshData.Indices32.end(), {
+		0, 2, 4,
+		0, 4, 3,
+		0, 3, 5,
+		0, 5, 2
+		});
+
+	// Bottom 4 triangles
+	meshData.Indices32.insert(meshData.Indices32.end(), {
+		1, 4, 2,
+		1, 3, 4,
+		1, 5, 3,
+		1, 2, 5
+		});
+
+	return meshData;
+}
+GeometryGenerator::MeshData GeometryGenerator::CreateTriPrism(float width, float height, float depth)
+{
+	MeshData meshData;
+
+	const float w2 = 0.5f * width;
+	const float h2 = 0.5f * height;
+	const float d2 = 0.5f * depth;
+
+	// Triangle in X-Y plane, extruded along Z
+	// Front face (z = -d2)
+	XMFLOAT3 f0(-w2, -h2, -d2);
+	XMFLOAT3 f1(+w2, -h2, -d2);
+	XMFLOAT3 f2(0.0f, +h2, -d2);
+
+	// Back face (z = +d2)
+	XMFLOAT3 b0(-w2, -h2, +d2);
+	XMFLOAT3 b1(+w2, -h2, +d2);
+	XMFLOAT3 b2(0.0f, +h2, +d2);
+
+	auto faceNormal = [](const XMFLOAT3& a, const XMFLOAT3& b, const XMFLOAT3& c) -> XMFLOAT3
+		{
+			XMVECTOR A = XMLoadFloat3(&a);
+			XMVECTOR B = XMLoadFloat3(&b);
+			XMVECTOR C = XMLoadFloat3(&c);
+			XMVECTOR n = XMVector3Cross(B - A, C - A);
+			n = XMVector3Normalize(n);
+			XMFLOAT3 out;
+			XMStoreFloat3(&out, n);
+			return out;
+		};
+
+	auto addTri = [&](const XMFLOAT3& a, const XMFLOAT3& b, const XMFLOAT3& c)
+		{
+			XMFLOAT3 n = faceNormal(a, b, c);
+			XMFLOAT3 t(1, 0, 0);
+
+			uint32 start = (uint32)meshData.Vertices.size();
+			meshData.Vertices.emplace_back(a, n, t, XMFLOAT2(0, 1));
+			meshData.Vertices.emplace_back(b, n, t, XMFLOAT2(1, 1));
+			meshData.Vertices.emplace_back(c, n, t, XMFLOAT2(0.5f, 0));
+
+			meshData.Indices32.push_back(start + 0);
+			meshData.Indices32.push_back(start + 1);
+			meshData.Indices32.push_back(start + 2);
+		};
+
+	auto addQuad = [&](const XMFLOAT3& a, const XMFLOAT3& b, const XMFLOAT3& c, const XMFLOAT3& d)
+		{
+			XMFLOAT3 n = faceNormal(a, b, c);
+			XMFLOAT3 t(1, 0, 0);
+
+			uint32 start = (uint32)meshData.Vertices.size();
+			meshData.Vertices.emplace_back(a, n, t, XMFLOAT2(0, 1));
+			meshData.Vertices.emplace_back(b, n, t, XMFLOAT2(1, 1));
+			meshData.Vertices.emplace_back(c, n, t, XMFLOAT2(1, 0));
+			meshData.Vertices.emplace_back(d, n, t, XMFLOAT2(0, 0));
+
+			meshData.Indices32.insert(meshData.Indices32.end(), {
+				start + 0, start + 1, start + 2,
+				start + 0, start + 2, start + 3
+				});
+		};
+
+	// Front triangle (make sure outward normal faces -Z)
+	addTri(f0, f2, f1);
+
+	// Back triangle (outward +Z)
+	addTri(b0, b1, b2);
+
+	// Three side quads
+	addQuad(f0, f1, b1, b0); // bottom
+	addQuad(f1, f2, b2, b1); // right side
+	addQuad(f2, f0, b0, b2); // left side
+
+	return meshData;
+}

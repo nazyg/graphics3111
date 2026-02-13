@@ -104,6 +104,42 @@ public:
 	/// at the origin with the specified width and depth.
 	///</summary>
     MeshData CreateGrid(float width, float depth, uint32 m, uint32 n);
+	///<summary>
+/// Creates a cone centered at the origin, aligned with the y-axis.
+/// radius = bottom radius, height = total height.
+///</summary>
+	MeshData CreateCone(float radius, float height, uint32 sliceCount, uint32 stackCount);
+
+	///<summary>
+	/// Creates a torus centered at the origin, aligned with the y-axis.
+	/// majorRadius controls ring size, minorRadius is auto (majorRadius*0.3).
+	///</summary>
+	MeshData CreateTorus(float majorRadius, uint32 sliceCount, uint32 stackCount);
+
+	///<summary>
+	/// Creates a pyramid centered at the origin.
+	/// width/depth define base size, height is total height.
+	///</summary>
+	MeshData CreatePyramid(float width, float height, float depth);
+
+	///<summary>
+	/// Creates a wedge centered at the origin.
+	/// Think of a box with a slanted top (a ramp-like block).
+	///</summary>
+	MeshData CreateWedge(float width, float height, float depth);
+
+	///<summary>
+	/// Creates a diamond (octahedron) centered at the origin.
+	/// radius controls overall size.
+	///</summary>
+	MeshData CreateDiamond(float radius);
+
+	///<summary>
+	/// Creates a triangular prism centered at the origin.
+	/// width = base width, height = triangle height, depth = extrusion depth.
+	///</summary>
+	MeshData CreateTriPrism(float width, float height, float depth);
+
 
 	///<summary>
 	/// Creates a quad aligned with the screen.  This is useful for postprocessing and screen effects.
