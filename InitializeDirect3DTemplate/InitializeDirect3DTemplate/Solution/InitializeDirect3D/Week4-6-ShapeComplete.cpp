@@ -1,4 +1,4 @@
-/** @file Week4-6-ShapeComplete.cpp
+﻿/** @file Week4-6-ShapeComplete.cpp
  *  @brief Shape Practice Solution.
  *
  *  Place all of the scene geometry in one big vertex and index buffer.
@@ -832,32 +832,6 @@ void ShapesApp::BuildFrameResources()
 void ShapesApp::BuildRenderItems()
 {
     UINT objCBIndex = 0;
-	
-
-    // Box 1
-    auto boxRitem = std::make_unique<RenderItem>();
-    XMStoreFloat4x4(&boxRitem->World,
-        XMMatrixScaling(2.0f, 2.0f, 2.0f) * XMMatrixTranslation(0.0f, 0.5f, 0.0f));
-
-    boxRitem->ObjCBIndex = objCBIndex++;
-    boxRitem->Geo = mGeometries["shapeGeo"].get();
-    boxRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-    boxRitem->IndexCount = boxRitem->Geo->DrawArgs["box"].IndexCount;
-    boxRitem->StartIndexLocation = boxRitem->Geo->DrawArgs["box"].StartIndexLocation;
-    boxRitem->BaseVertexLocation = boxRitem->Geo->DrawArgs["box"].BaseVertexLocation;
-    mAllRitems.push_back(std::move(boxRitem));
-
-    // Box 2
-    auto box2Ritem = std::make_unique<RenderItem>();
-    XMStoreFloat4x4(&box2Ritem->World,
-        XMMatrixScaling(2.0f, 2.0f, 2.0f) * XMMatrixTranslation(-4.0f, 0.5f, -4.0f));
-    box2Ritem->ObjCBIndex = objCBIndex++;
-    box2Ritem->Geo = mGeometries["shapeGeo"].get();
-    box2Ritem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-    box2Ritem->IndexCount = box2Ritem->Geo->DrawArgs["box"].IndexCount;
-    box2Ritem->StartIndexLocation = box2Ritem->Geo->DrawArgs["box"].StartIndexLocation;
-    box2Ritem->BaseVertexLocation = box2Ritem->Geo->DrawArgs["box"].BaseVertexLocation;
-    mAllRitems.push_back(std::move(box2Ritem));
 
     // Grid
     auto gridRitem = std::make_unique<RenderItem>();
@@ -870,59 +844,134 @@ void ShapesApp::BuildRenderItems()
     gridRitem->BaseVertexLocation = gridRitem->Geo->DrawArgs["grid"].BaseVertexLocation;
     mAllRitems.push_back(std::move(gridRitem));
 
-	// ------------------------
+	
+// CASTLE (4 towers + cone roofs + thin walls + wedge exit + center pyramid)
 
-	//...............................................
-	// Columns + Spheres
-	for (int i = 0; i < 5; ++i)
-	{
-		auto leftCylRitem = std::make_unique<RenderItem>();
-		auto rightCylRitem = std::make_unique<RenderItem>();
-		auto leftSphereRitem = std::make_unique<RenderItem>();
-		auto rightSphereRitem = std::make_unique<RenderItem>();
 
-		XMMATRIX leftCylWorld = XMMatrixTranslation(-5.0f, 1.5f, -10.0f + i * 5.0f);
-		XMMATRIX rightCylWorld = XMMatrixTranslation(+5.0f, 1.5f, -10.0f + i * 5.0f);
-		XMMATRIX leftSphereWorld = XMMatrixTranslation(-5.0f, 3.5f, -10.0f + i * 5.0f);
-		XMMATRIX rightSphereWorld = XMMatrixTranslation(+5.0f, 3.5f, -10.0f + i * 5.0f);
+	auto AddItem = [&](const std::string& key, const XMMATRIX& world)
+		{
+			auto r = std::make_unique<RenderItem>();
+			XMStoreFloat4x4(&r->World, world);
 
-		XMStoreFloat4x4(&leftCylRitem->World, leftCylWorld);
-		leftCylRitem->ObjCBIndex = objCBIndex++;
-		leftCylRitem->Geo = mGeometries["shapeGeo"].get();
-		leftCylRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-		leftCylRitem->IndexCount = leftCylRitem->Geo->DrawArgs["cylinder"].IndexCount;
-		leftCylRitem->StartIndexLocation = leftCylRitem->Geo->DrawArgs["cylinder"].StartIndexLocation;
-		leftCylRitem->BaseVertexLocation = leftCylRitem->Geo->DrawArgs["cylinder"].BaseVertexLocation;
+			r->ObjCBIndex = objCBIndex++;
+			r->Geo = mGeometries["shapeGeo"].get();
+			r->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 
-		XMStoreFloat4x4(&rightCylRitem->World, rightCylWorld);
-		rightCylRitem->ObjCBIndex = objCBIndex++;
-		rightCylRitem->Geo = mGeometries["shapeGeo"].get();
-		rightCylRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-		rightCylRitem->IndexCount = rightCylRitem->Geo->DrawArgs["cylinder"].IndexCount;
-		rightCylRitem->StartIndexLocation = rightCylRitem->Geo->DrawArgs["cylinder"].StartIndexLocation;
-		rightCylRitem->BaseVertexLocation = rightCylRitem->Geo->DrawArgs["cylinder"].BaseVertexLocation;
+			r->IndexCount = r->Geo->DrawArgs[key].IndexCount;
+			r->StartIndexLocation = r->Geo->DrawArgs[key].StartIndexLocation;
+			r->BaseVertexLocation = r->Geo->DrawArgs[key].BaseVertexLocation;
 
-		XMStoreFloat4x4(&leftSphereRitem->World, leftSphereWorld);
-		leftSphereRitem->ObjCBIndex = objCBIndex++;
-		leftSphereRitem->Geo = mGeometries["shapeGeo"].get();
-		leftSphereRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-		leftSphereRitem->IndexCount = leftSphereRitem->Geo->DrawArgs["sphere"].IndexCount;
-		leftSphereRitem->StartIndexLocation = leftSphereRitem->Geo->DrawArgs["sphere"].StartIndexLocation;
-		leftSphereRitem->BaseVertexLocation = leftSphereRitem->Geo->DrawArgs["sphere"].BaseVertexLocation;
+			mAllRitems.push_back(std::move(r));
+		};
 
-		XMStoreFloat4x4(&rightSphereRitem->World, rightSphereWorld);
-		rightSphereRitem->ObjCBIndex = objCBIndex++;
-		rightSphereRitem->Geo = mGeometries["shapeGeo"].get();
-		rightSphereRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-		rightSphereRitem->IndexCount = rightSphereRitem->Geo->DrawArgs["sphere"].IndexCount;
-		rightSphereRitem->StartIndexLocation = rightSphereRitem->Geo->DrawArgs["sphere"].StartIndexLocation;
-		rightSphereRitem->BaseVertexLocation = rightSphereRitem->Geo->DrawArgs["sphere"].BaseVertexLocation;
+	// Layout size (compact, default-ish)
+	const float d = 6.0f;//Castle overall size
 
-		mAllRitems.push_back(std::move(leftCylRitem));
-		mAllRitems.push_back(std::move(rightCylRitem));
-		mAllRitems.push_back(std::move(leftSphereRitem));
-		mAllRitems.push_back(std::move(rightSphereRitem));
-	}
+
+	// TOWERS (Cylinders)
+
+	// Scaling controls tower thickness (X,Z) and height (Y)
+	XMMATRIX towerS = XMMatrixScaling(1.8f, 1.8f, 1.8f);//Tower thickness + height
+
+	// Calculate tower vertical position so it sits exactly on the grid (Y=0)
+	// Cylinder height = 3.0f → scaled height = 3.0 * 1.8
+	// We divide by 2 because object origin is at center
+	const float towerY = (3.0f * 1.8f) * 0.5f;//Whether tower floats or sits on grid
+
+	// Place 4 symmetrical towers
+	AddItem("cylinder", towerS * XMMatrixTranslation(-d, towerY, +d));
+	AddItem("cylinder", towerS * XMMatrixTranslation(+d, towerY, +d));
+	AddItem("cylinder", towerS * XMMatrixTranslation(-d, towerY, -d));
+	AddItem("cylinder", towerS * XMMatrixTranslation(+d, towerY, -d));
+
+
+
+	// TOWER ROOFS (Cones)
+
+	// Controls cone size
+	XMMATRIX roofS = XMMatrixScaling(1.2f, 1.2f, 1.2f);
+
+	// Compute correct vertical placement so cone sits on top of cylinder
+	// towerH = full scaled tower height
+	const float towerH = (3.0f * 1.8f);
+
+	// coneHalfHeight = (coneHeight * scaleY) / 2
+	const float coneHalfHeight = (2.0f * 1.2f) * 0.5f;
+
+	// Final Y position places cone exactly on tower
+	const float roofY = towerH + coneHalfHeight;
+
+	AddItem("cone", roofS * XMMatrixTranslation(-d, roofY, +d));
+	AddItem("cone", roofS * XMMatrixTranslation(+d, roofY, +d));
+	AddItem("cone", roofS * XMMatrixTranslation(-d, roofY, -d));
+	AddItem("cone", roofS * XMMatrixTranslation(+d, roofY, -d));
+
+
+	// WALLS (Thin Rectangular Boxes)
+	
+
+// WALLS: taller + thicker
+	const float wallScaleY = 3.0f;                  // higher walls
+	const float wallThickness = 0.5f;               // thicker walls
+	const float wallY = (1.0f * wallScaleY) * 0.5f; // sit on grid (y=0)
+	const float wallLenX = 2.0f * d + 1.8f; // make walls wide enough to overlap towers
+	const float wallLenZ = 2.0f * d + 1.8f;
+
+
+	// Front / Back walls (long in X)
+	AddItem("box",
+		XMMatrixScaling(wallLenX, wallScaleY, wallThickness) *
+		XMMatrixTranslation(0.0f, wallY, +d));
+
+	AddItem("box",
+		XMMatrixScaling(wallLenX, wallScaleY, wallThickness) *
+		XMMatrixTranslation(0.0f, wallY, -d));
+
+	// Left / Right walls (long in Z)
+	AddItem("box",
+		XMMatrixScaling(wallThickness, wallScaleY, wallLenZ) *
+		XMMatrixTranslation(-d, wallY, 0.0f));
+
+	AddItem("box",
+		XMMatrixScaling(wallThickness, wallScaleY, wallLenZ) *
+		XMMatrixTranslation(+d, wallY, 0.0f));
+
+
+	// GATE RAMP (Wedge)
+
+	// Controls wedge size (smaller = cleaner look)
+	XMMATRIX gateS = XMMatrixScaling(1.2f, 0.6f, 0.9f);
+
+	// gateY ensures wedge sits on grid
+	const float gateY = (1.0f * 0.6f) * 0.5f;
+
+	// Wall half thickness (wall thickness = 0.5)
+	const float wallHalfZ = 0.25f;
+
+	// Wedge half depth after scaling
+	const float wedgeHalfZ = (2.0f * 0.9f) * 0.5f;
+
+	// This ensures the tall side of wedge touches the wall exactly
+	const float gateZ = (d - wallHalfZ) - wedgeHalfZ;
+
+	// Rotate if needed so tall side faces wall
+	XMMATRIX gateW =
+		XMMatrixRotationY(XM_PI) *
+		gateS *
+		XMMatrixTranslation(0.0f, gateY, gateZ);
+
+	AddItem("wedge", gateW);
+
+
+	// CENTER KEEP (Pyramid)
+
+	// Controls pyramid size
+	XMMATRIX pyrS = XMMatrixScaling(1.2f, 2.0f, 3.0f);
+
+	// Pyramid Y so bottom sits exactly on grid
+	const float pyrY = (2.0f * 1.2f) * 0.5f;
+
+	AddItem("pyramid", pyrS * XMMatrixTranslation(0.0f, pyrY, 0.0f));
 
     // All the render items are opaque.
     for (auto& e : mAllRitems)
