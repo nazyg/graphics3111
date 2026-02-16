@@ -541,9 +541,9 @@ void ShapesApp::BuildShapeGeometry()
 	GeometryGenerator::MeshData box = geoGen.CreateBox(1.0f, 1.0f, 1.0f, 0);
 	GeometryGenerator::MeshData grid = geoGen.CreateGrid(20.0f, 30.0f, 60, 40);
 	GeometryGenerator::MeshData sphere = geoGen.CreateSphere(0.5f, 20, 20);
-	GeometryGenerator::MeshData cylinder = geoGen.CreateCylinder(0.5f, 0.3f, 3.0f, 20, 20);
-	GeometryGenerator::MeshData cone = geoGen.CreateCone(0.5f, 2.0f, 20, 20);
-	GeometryGenerator::MeshData torus = geoGen.CreateTorus(0.6f, 24, 16);
+	GeometryGenerator::MeshData cylinder = geoGen.CreateCylinder(0.5f, 0.5f, 3.0f, 20, 20);
+	GeometryGenerator::MeshData cone = geoGen.CreateCone(1.0f, 1.0f, 20, 20);
+	GeometryGenerator::MeshData torus = geoGen.CreateTorus(1.0f, 24, 16);
 	GeometryGenerator::MeshData pyramid = geoGen.CreatePyramid(1.5f, 2.0f, 1.5f);
 	GeometryGenerator::MeshData wedge = geoGen.CreateWedge(2.0f, 1.0f, 2.0f);
 	GeometryGenerator::MeshData diamond = geoGen.CreateDiamond(0.8f);
@@ -831,23 +831,20 @@ void ShapesApp::BuildFrameResources()
 
 void ShapesApp::BuildRenderItems()
 {
-    UINT objCBIndex = 0;
+	UINT objCBIndex = 0;
 
-    // Grid
-    auto gridRitem = std::make_unique<RenderItem>();
-    gridRitem->World = MathHelper::Identity4x4();
-    gridRitem->ObjCBIndex = objCBIndex++;
-    gridRitem->Geo = mGeometries["shapeGeo"].get();
-    gridRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-    gridRitem->IndexCount = gridRitem->Geo->DrawArgs["grid"].IndexCount;
-    gridRitem->StartIndexLocation = gridRitem->Geo->DrawArgs["grid"].StartIndexLocation;
-    gridRitem->BaseVertexLocation = gridRitem->Geo->DrawArgs["grid"].BaseVertexLocation;
-    mAllRitems.push_back(std::move(gridRitem));
+	// ---------- GRID ----------
+	auto gridRitem = std::make_unique<RenderItem>();
+	gridRitem->World = MathHelper::Identity4x4();
+	gridRitem->ObjCBIndex = objCBIndex++;
+	gridRitem->Geo = mGeometries["shapeGeo"].get();
+	gridRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+	gridRitem->IndexCount = gridRitem->Geo->DrawArgs["grid"].IndexCount;
+	gridRitem->StartIndexLocation = gridRitem->Geo->DrawArgs["grid"].StartIndexLocation;
+	gridRitem->BaseVertexLocation = gridRitem->Geo->DrawArgs["grid"].BaseVertexLocation;
+	mAllRitems.push_back(std::move(gridRitem));
 
-	
-// CASTLE (4 towers + cone roofs + thin walls + wedge exit + center pyramid)
-
-
+	// ---------- helper ----------
 	auto AddItem = [&](const std::string& key, const XMMATRIX& world)
 		{
 			auto r = std::make_unique<RenderItem>();
@@ -864,119 +861,229 @@ void ShapesApp::BuildRenderItems()
 			mAllRitems.push_back(std::move(r));
 		};
 
-	// Layout size (compact, default-ish)
-	const float d = 6.0f;//Castle overall size
+	// =====================================================
+	// BASE SETTINGS (senin mevcut ayarların)
+	// =====================================================
+	const float castleZ = 6.0f;
 
+	// U layout size
+	const float uW = 12.0f; // width X
+	const float uD = 8.0f;  // depth Z
 
-	// TOWERS (Cylinders)
+	// Walls (height + thickness)
+	const float wallH = 4.0f;
+	const float wallT = 0.25f;
+	const float wallY = wallH * 0.5f;
 
-	// Scaling controls tower thickness (X,Z) and height (Y)
-	XMMATRIX towerS = XMMatrixScaling(1.8f, 1.8f, 1.8f);//Tower thickness + height
+	// U'nun önü (giriş) tarafı:
+	const float frontZ = castleZ + uD * 0.5f;
 
-	// Calculate tower vertical position so it sits exactly on the grid (Y=0)
-	// Cylinder height = 3.0f → scaled height = 3.0 * 1.8
-	// We divide by 2 because object origin is at center
-	const float towerY = (3.0f * 1.8f) * 0.5f;//Whether tower floats or sits on grid
+	// U'nun arka ucu (yeşil alanın arka başlangıcı):
+	const float uBackZ = castleZ - uD * 0.5f;
 
-	// Place 4 symmetrical towers
-	AddItem("cylinder", towerS * XMMatrixTranslation(-d, towerY, +d));
-	AddItem("cylinder", towerS * XMMatrixTranslation(+d, towerY, +d));
-	AddItem("cylinder", towerS * XMMatrixTranslation(-d, towerY, -d));
-	AddItem("cylinder", towerS * XMMatrixTranslation(+d, towerY, -d));
+	// =====================================================
+	// U WALLS: ARKADAKİ GENİŞ DUVAR SİLİNDİ
+	// SADECE SOL + SAĞ DUVARLAR KALIYOR
+	// =====================================================
+	const float leftX = -uW * 0.5f;
+	const float rightX = +uW * 0.5f;
 
-
-
-	// TOWER ROOFS (Cones)
-
-	// Controls cone size
-	XMMATRIX roofS = XMMatrixScaling(1.2f, 1.2f, 1.2f);
-
-	// Compute correct vertical placement so cone sits on top of cylinder
-	// towerH = full scaled tower height
-	const float towerH = (3.0f * 1.8f);
-
-	// coneHalfHeight = (coneHeight * scaleY) / 2
-	const float coneHalfHeight = (2.0f * 1.2f) * 0.5f;
-
-	// Final Y position places cone exactly on tower
-	const float roofY = towerH + coneHalfHeight;
-
-	AddItem("cone", roofS * XMMatrixTranslation(-d, roofY, +d));
-	AddItem("cone", roofS * XMMatrixTranslation(+d, roofY, +d));
-	AddItem("cone", roofS * XMMatrixTranslation(-d, roofY, -d));
-	AddItem("cone", roofS * XMMatrixTranslation(+d, roofY, -d));
-
-
-	// WALLS (Thin Rectangular Boxes)
-	
-
-// WALLS: taller + thicker
-	const float wallScaleY = 3.0f;                  // higher walls
-	const float wallThickness = 0.5f;               // thicker walls
-	const float wallY = (1.0f * wallScaleY) * 0.5f; // sit on grid (y=0)
-	const float wallLenX = 2.0f * d + 1.8f; // make walls wide enough to overlap towers
-	const float wallLenZ = 2.0f * d + 1.8f;
-
-
-	// Front / Back walls (long in X)
+	// Left wall (box: thin in X, long in Z)
 	AddItem("box",
-		XMMatrixScaling(wallLenX, wallScaleY, wallThickness) *
-		XMMatrixTranslation(0.0f, wallY, +d));
+		XMMatrixScaling(wallT, wallH, uD) *
+		XMMatrixTranslation(leftX, wallY, castleZ));
 
+	// Right wall
 	AddItem("box",
-		XMMatrixScaling(wallLenX, wallScaleY, wallThickness) *
-		XMMatrixTranslation(0.0f, wallY, -d));
+		XMMatrixScaling(wallT, wallH, uD) *
+		XMMatrixTranslation(rightX, wallY, castleZ));
 
-	// Left / Right walls (long in Z)
+	// =====================================================
+	// ARKA SINIRLAR: DAR BAŞLAYIP ARKADA GENİŞLEYEN KALE
+	// - İki yan duvarın arka uçlarından başlar
+	// - Arkaya doğru açılır (trapez)
+	// =====================================================
+	const float rearExtraD = 10.0f;          // arkaya ne kadar uzasın
+	const float rearW = uW + 10.0f;     // arkada ne kadar genişlesin
+
+	const float rearZ = uBackZ - rearExtraD;
+	const float farLeftX = -rearW * 0.5f;
+	const float farRightX = +rearW * 0.5f;
+
+	// Arka en son duvar (geniş)
 	AddItem("box",
-		XMMatrixScaling(wallThickness, wallScaleY, wallLenZ) *
-		XMMatrixTranslation(-d, wallY, 0.0f));
+		XMMatrixScaling(rearW, wallH, wallT) *
+		XMMatrixTranslation(0.0f, wallY, rearZ));
 
-	AddItem("box",
-		XMMatrixScaling(wallThickness, wallScaleY, wallLenZ) *
-		XMMatrixTranslation(+d, wallY, 0.0f));
+	// Sol diyagonal duvar: (leftX, uBackZ) -> (farLeftX, rearZ)
+	{
+		const float x0 = leftX, z0 = uBackZ;
+		const float x1 = farLeftX, z1 = rearZ;
 
+		const float dx = x1 - x0;
+		const float dz = z1 - z0;
 
-	// GATE RAMP (Wedge)
+		const float len = sqrtf(dx * dx + dz * dz);
+		const float midX = (x0 + x1) * 0.5f;
+		const float midZ = (z0 + z1) * 0.5f;
 
-	// Controls wedge size (smaller = cleaner look)
-	XMMATRIX gateS = XMMatrixScaling(1.2f, 0.6f, 0.9f);
+		// kutunun X ekseni boyunca uzatacağız -> duvar yönüne döndür
+		const float rotY = atan2f(dx, dz);
 
-	// gateY ensures wedge sits on grid
-	const float gateY = (1.0f * 0.6f) * 0.5f;
+		AddItem("box",
+			XMMatrixRotationY(rotY) *
+			XMMatrixScaling(len, wallH, wallT) *
+			XMMatrixTranslation(midX, wallY, midZ));
+	}
 
-	// Wall half thickness (wall thickness = 0.5)
-	const float wallHalfZ = 0.25f;
+	// Sağ diyagonal duvar: (rightX, uBackZ) -> (farRightX, rearZ)
+	{
+		const float x0 = rightX, z0 = uBackZ;
+		const float x1 = farRightX, z1 = rearZ;
 
-	// Wedge half depth after scaling
-	const float wedgeHalfZ = (2.0f * 0.9f) * 0.5f;
+		const float dx = x1 - x0;
+		const float dz = z1 - z0;
 
-	// This ensures the tall side of wedge touches the wall exactly
-	const float gateZ = (d - wallHalfZ) - wedgeHalfZ;
+		const float len = sqrtf(dx * dx + dz * dz);
+		const float midX = (x0 + x1) * 0.5f;
+		const float midZ = (z0 + z1) * 0.5f;
 
-	// Rotate if needed so tall side faces wall
-	XMMATRIX gateW =
-		XMMatrixRotationY(XM_PI) *
-		gateS *
-		XMMatrixTranslation(0.0f, gateY, gateZ);
+		const float rotY = atan2f(dx, dz);
 
-	AddItem("wedge", gateW);
+		AddItem("box",
+			XMMatrixRotationY(rotY) *
+			XMMatrixScaling(len, wallH, wallT) *
+			XMMatrixTranslation(midX, wallY, midZ));
+	}
 
+	// =====================================================
+	// WALL TEETH (dolu-bos) - kolay versiyon:
+	// Sadece 2 yan duvarda + arka en son duvarda
+	// (diyagonallerde diş yapmıyoruz çünkü işi zorlaştırıyor)
+	// =====================================================
+	const float toothW = 1.0f;
+	const float toothH = 0.6f;
+	const float toothY = wallH + toothH * 0.5f;
 
-	// CENTER KEEP (Pyramid)
+	// Left wall teeth (along Z)
+	{
+		int idx = 0;
+		for (float z = uBackZ + toothW * 0.5f; z <= frontZ - toothW * 0.5f; z += toothW)
+		{
+			if ((idx % 2) == 0)
+			{
+				AddItem("box",
+					XMMatrixScaling(wallT, toothH, toothW) *
+					XMMatrixTranslation(leftX, toothY, z));
+			}
+			idx++;
+		}
+	}
 
-	// Controls pyramid size
-	XMMATRIX pyrS = XMMatrixScaling(1.2f, 2.0f, 3.0f);
+	// Right wall teeth (along Z)
+	{
+		int idx = 0;
+		for (float z = uBackZ + toothW * 0.5f; z <= frontZ - toothW * 0.5f; z += toothW)
+		{
+			if ((idx % 2) == 0)
+			{
+				AddItem("box",
+					XMMatrixScaling(wallT, toothH, toothW) *
+					XMMatrixTranslation(rightX, toothY, z));
+			}
+			idx++;
+		}
+	}
 
-	// Pyramid Y so bottom sits exactly on grid
-	const float pyrY = (2.0f * 1.2f) * 0.5f;
+	// Back far wall teeth (along X)
+	{
+		int idx = 0;
+		for (float x = -rearW * 0.5f + toothW * 0.5f; x <= rearW * 0.5f - toothW * 0.5f; x += toothW)
+		{
+			if ((idx % 2) == 0)
+			{
+				AddItem("box",
+					XMMatrixScaling(toothW, toothH, wallT) *
+					XMMatrixTranslation(x, toothY, rearZ));
+			}
+			idx++;
+		}
+	}
 
-	AddItem("pyramid", pyrS * XMMatrixTranslation(0.0f, pyrY, 0.0f));
+	// =====================================================
+	// 2 CYLINDER POSTS + CONES (senin mantık)
+	// Burada "silindiri incelt" dediğin için scaleXZ'i düşürdüm.
+	// =====================================================
+	const float cylMeshH = 3.0f;
+	const float cylMeshR = 0.5f;
 
-    // All the render items are opaque.
-    for (auto& e : mAllRitems)
-        mOpaqueRitems.push_back(e.get());
+	const float postWorldH = wallH + 0.6f;
+	const float scaleY = postWorldH / cylMeshH;
+
+	const float scaleXZ = 1.15f; // <-- inceltildi (eski 1.6 yerine)
+	XMMATRIX postS = XMMatrixScaling(scaleXZ, scaleY, scaleXZ);
+
+	const float postY = (cylMeshH * scaleY) * 0.5f;
+
+	AddItem("cylinder", postS * XMMatrixTranslation(leftX, postY, frontZ));
+	AddItem("cylinder", postS * XMMatrixTranslation(rightX, postY, frontZ));
+
+	// Cones
+	const float postWorldR = cylMeshR * scaleXZ;
+	const float coneWorldR = postWorldR * 1.5f;
+	const float coneWorldH = wallH * 1.8f;
+
+	XMMATRIX coneS = XMMatrixScaling(coneWorldR, coneWorldH, coneWorldR);
+	const float coneY = postWorldH + (coneWorldH * 0.5f);
+
+	AddItem("cone", coneS * XMMatrixTranslation(leftX, coneY, frontZ));
+	AddItem("cone", coneS * XMMatrixTranslation(rightX, coneY, frontZ));
+
+	// =====================================================
+	// BIG TORUS GATE (vertical), half underground, thinner
+	// "han kapısı gibi", yarısı yer altında, ince
+	// =====================================================
+	{
+		// gap between cylinder SURFACES
+		const float gap = (rightX - leftX) - (2.0f * postWorldR);
+
+		// a bit bigger than gap
+		const float outerRadiusWorld = (gap * 1.10f) * 0.5f;
+
+		// Torus mesh: major=1, minor=0.30 => outer = 1.3*major
+		const float majorRadiusWorld = outerRadiusWorld / 1.3f;
+
+		// thinner ring
+		const float thinFactor = 0.60f;
+
+		// stand vertical like a gate
+		XMMATRIX torusRot = XMMatrixRotationX(XM_PIDIV2);
+
+		// half underground -> center on ground (Y=0)
+		const float gateY = 0.0f;
+		const float gateZ = frontZ - 0.15f;
+
+		AddItem("torus",
+			torusRot *
+			XMMatrixScaling(majorRadiusWorld, majorRadiusWorld * thinFactor, majorRadiusWorld * thinFactor) *
+			XMMatrixTranslation(0.0f, gateY, gateZ));
+
+		// Diamond above torus (vertical + floating)
+		const float diamondS = 0.9f;
+		const float diamondY = outerRadiusWorld + 0.7f;
+		AddItem("diamond",
+			XMMatrixScaling(diamondS, diamondS * 1.4f, diamondS) *
+			XMMatrixTranslation(0.0f, diamondY, gateZ));
+	}
+
+	// ---------- All opaque ----------
+	for (auto& e : mAllRitems)
+		mOpaqueRitems.push_back(e.get());
 }
+
+
+
+
 
 
 void ShapesApp::DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::vector<RenderItem*>& ritems)
