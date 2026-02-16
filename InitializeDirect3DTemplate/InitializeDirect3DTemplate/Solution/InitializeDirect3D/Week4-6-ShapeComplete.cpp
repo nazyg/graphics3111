@@ -828,7 +828,6 @@ void ShapesApp::BuildFrameResources()
 }
 
 
-
 void ShapesApp::BuildRenderItems()
 {
 	UINT objCBIndex = 0;
@@ -862,157 +861,119 @@ void ShapesApp::BuildRenderItems()
 		};
 
 	// =====================================================
-	// BASE SETTINGS (senin mevcut ayarların)
+	// BASE SETTINGS (Castle centered on green)
 	// =====================================================
-	const float castleZ = 6.0f;
+	const float castleZ = 0.0f;   // <-- yeşil alana ortalamak için 0 yaptık
 
-	// U layout size
-	const float uW = 12.0f; // width X
-	const float uD = 8.0f;  // depth Z
+	const float uW = 12.0f; // width X (outer)
+	const float uD = 8.0f;  // depth Z (outer)
 
-	// Walls (height + thickness)
 	const float wallH = 4.0f;
 	const float wallT = 0.25f;
 	const float wallY = wallH * 0.5f;
 
-	// U'nun önü (giriş) tarafı:
-	const float frontZ = castleZ + uD * 0.5f;
+	const float xLeft = -uW * 0.5f;
+	const float xRight = +uW * 0.5f;
 
-	// U'nun arka ucu (yeşil alanın arka başlangıcı):
-	const float uBackZ = castleZ - uD * 0.5f;
+	const float zBack = castleZ - uD * 0.5f;
+	const float zFront = castleZ + uD * 0.5f;
+
+	// Door gap width on the FRONT side
+	const float gateGapW = 4.0f;
 
 	// =====================================================
-	// U WALLS: ARKADAKİ GENİŞ DUVAR SİLİNDİ
-	// SADECE SOL + SAĞ DUVARLAR KALIYOR
+	// OUTER WALLS (rectangle around green)
 	// =====================================================
-	const float leftX = -uW * 0.5f;
-	const float rightX = +uW * 0.5f;
 
-	// Left wall (box: thin in X, long in Z)
+	// Back wall (full along X)
+	AddItem("box",
+		XMMatrixScaling(uW, wallH, wallT) *
+		XMMatrixTranslation(0.0f, wallY, zBack));
+
+	// Left wall (full along Z)
 	AddItem("box",
 		XMMatrixScaling(wallT, wallH, uD) *
-		XMMatrixTranslation(leftX, wallY, castleZ));
+		XMMatrixTranslation(xLeft, wallY, castleZ));
 
-	// Right wall
+	// Right wall (full along Z)
 	AddItem("box",
 		XMMatrixScaling(wallT, wallH, uD) *
-		XMMatrixTranslation(rightX, wallY, castleZ));
+		XMMatrixTranslation(xRight, wallY, castleZ));
 
-	// =====================================================
-	// ARKA SINIRLAR: DAR BAŞLAYIP ARKADA GENİŞLEYEN KALE
-	// - İki yan duvarın arka uçlarından başlar
-	// - Arkaya doğru açılır (trapez)
-	// =====================================================
-	const float rearExtraD = 10.0f;          // arkaya ne kadar uzasın
-	const float rearW = uW + 10.0f;     // arkada ne kadar genişlesin
+	// Front wall split into two segments (leave gap in middle)
+	const float frontSegLen = (uW - gateGapW) * 0.5f;
+	const float frontSegCenterOffset = (gateGapW * 0.5f) + (frontSegLen * 0.5f);
 
-	const float rearZ = uBackZ - rearExtraD;
-	const float farLeftX = -rearW * 0.5f;
-	const float farRightX = +rearW * 0.5f;
-
-	// Arka en son duvar (geniş)
+	// Front-left segment
 	AddItem("box",
-		XMMatrixScaling(rearW, wallH, wallT) *
-		XMMatrixTranslation(0.0f, wallY, rearZ));
+		XMMatrixScaling(frontSegLen, wallH, wallT) *
+		XMMatrixTranslation(-frontSegCenterOffset, wallY, zFront));
 
-	// Sol diyagonal duvar: (leftX, uBackZ) -> (farLeftX, rearZ)
-	{
-		const float x0 = leftX, z0 = uBackZ;
-		const float x1 = farLeftX, z1 = rearZ;
-
-		const float dx = x1 - x0;
-		const float dz = z1 - z0;
-
-		const float len = sqrtf(dx * dx + dz * dz);
-		const float midX = (x0 + x1) * 0.5f;
-		const float midZ = (z0 + z1) * 0.5f;
-
-		// kutunun X ekseni boyunca uzatacağız -> duvar yönüne döndür
-		const float rotY = atan2f(dx, dz);
-
-		AddItem("box",
-			XMMatrixRotationY(rotY) *
-			XMMatrixScaling(len, wallH, wallT) *
-			XMMatrixTranslation(midX, wallY, midZ));
-	}
-
-	// Sağ diyagonal duvar: (rightX, uBackZ) -> (farRightX, rearZ)
-	{
-		const float x0 = rightX, z0 = uBackZ;
-		const float x1 = farRightX, z1 = rearZ;
-
-		const float dx = x1 - x0;
-		const float dz = z1 - z0;
-
-		const float len = sqrtf(dx * dx + dz * dz);
-		const float midX = (x0 + x1) * 0.5f;
-		const float midZ = (z0 + z1) * 0.5f;
-
-		const float rotY = atan2f(dx, dz);
-
-		AddItem("box",
-			XMMatrixRotationY(rotY) *
-			XMMatrixScaling(len, wallH, wallT) *
-			XMMatrixTranslation(midX, wallY, midZ));
-	}
+	// Front-right segment
+	AddItem("box",
+		XMMatrixScaling(frontSegLen, wallH, wallT) *
+		XMMatrixTranslation(+frontSegCenterOffset, wallY, zFront));
 
 	// =====================================================
-	// WALL TEETH (dolu-bos) - kolay versiyon:
-	// Sadece 2 yan duvarda + arka en son duvarda
-	// (diyagonallerde diş yapmıyoruz çünkü işi zorlaştırıyor)
+	// INNER WALLS (connect to the front wall segments)
+	// =====================================================
+	const float innerDepth = 4.0f;
+	const float innerCenterZ = zFront - (wallT * 0.5f) - (innerDepth * 0.5f);
+
+	const float innerLeftX = -gateGapW * 0.5f;
+	const float innerRightX = +gateGapW * 0.5f;
+
+	AddItem("box",
+		XMMatrixScaling(wallT, wallH, innerDepth) *
+		XMMatrixTranslation(innerLeftX, wallY, innerCenterZ));
+
+	AddItem("box",
+		XMMatrixScaling(wallT, wallH, innerDepth) *
+		XMMatrixTranslation(innerRightX, wallY, innerCenterZ));
+
+	// =====================================================
+	// WALL TEETH (dolu-bos)
 	// =====================================================
 	const float toothW = 1.0f;
 	const float toothH = 0.6f;
-	const float toothY = wallH + toothH * 0.5f;
+	const float toothTopY = wallH + toothH * 0.5f;
 
-	// Left wall teeth (along Z)
-	{
-		int idx = 0;
-		for (float z = uBackZ + toothW * 0.5f; z <= frontZ - toothW * 0.5f; z += toothW)
+	auto AddTeethAlongX = [&](float zWall, float xMin, float xMax)
 		{
-			if ((idx % 2) == 0)
+			int idx = 0;
+			for (float x = xMin + toothW * 0.5f; x <= xMax - toothW * 0.5f; x += toothW, ++idx)
 			{
-				AddItem("box",
-					XMMatrixScaling(wallT, toothH, toothW) *
-					XMMatrixTranslation(leftX, toothY, z));
+				if ((idx % 2) == 0)
+				{
+					AddItem("box",
+						XMMatrixScaling(toothW, toothH, wallT) *
+						XMMatrixTranslation(x, toothTopY, zWall));
+				}
 			}
-			idx++;
-		}
-	}
+		};
 
-	// Right wall teeth (along Z)
-	{
-		int idx = 0;
-		for (float z = uBackZ + toothW * 0.5f; z <= frontZ - toothW * 0.5f; z += toothW)
+	auto AddTeethAlongZ = [&](float xWall, float zMin, float zMax)
 		{
-			if ((idx % 2) == 0)
+			int idx = 0;
+			for (float z = zMin + toothW * 0.5f; z <= zMax - toothW * 0.5f; z += toothW, ++idx)
 			{
-				AddItem("box",
-					XMMatrixScaling(wallT, toothH, toothW) *
-					XMMatrixTranslation(rightX, toothY, z));
+				if ((idx % 2) == 0)
+				{
+					AddItem("box",
+						XMMatrixScaling(wallT, toothH, toothW) *
+						XMMatrixTranslation(xWall, toothTopY, z));
+				}
 			}
-			idx++;
-		}
-	}
+		};
 
-	// Back far wall teeth (along X)
-	{
-		int idx = 0;
-		for (float x = -rearW * 0.5f + toothW * 0.5f; x <= rearW * 0.5f - toothW * 0.5f; x += toothW)
-		{
-			if ((idx % 2) == 0)
-			{
-				AddItem("box",
-					XMMatrixScaling(toothW, toothH, wallT) *
-					XMMatrixTranslation(x, toothY, rearZ));
-			}
-			idx++;
-		}
-	}
+	AddTeethAlongX(zBack, xLeft, xRight);
+	AddTeethAlongZ(xLeft, zBack, zFront);
+	AddTeethAlongZ(xRight, zBack, zFront);
+	AddTeethAlongX(zFront, xLeft, -gateGapW * 0.5f);
+	AddTeethAlongX(zFront, +gateGapW * 0.5f, xRight);
 
 	// =====================================================
-	// 2 CYLINDER POSTS + CONES (senin mantık)
-	// Burada "silindiri incelt" dediğin için scaleXZ'i düşürdüm.
+	// CORNER TOWERS (CYLINDER + CONE) at 4 corners
 	// =====================================================
 	const float cylMeshH = 3.0f;
 	const float cylMeshR = 0.5f;
@@ -1020,15 +981,24 @@ void ShapesApp::BuildRenderItems()
 	const float postWorldH = wallH + 0.6f;
 	const float scaleY = postWorldH / cylMeshH;
 
-	const float scaleXZ = 1.15f; // <-- inceltildi (eski 1.6 yerine)
-	XMMATRIX postS = XMMatrixScaling(scaleXZ, scaleY, scaleXZ);
+	// silindiri incelt
+	const float scaleXZ = 1.15f;
 
+	XMMATRIX postS = XMMatrixScaling(scaleXZ, scaleY, scaleXZ);
 	const float postY = (cylMeshH * scaleY) * 0.5f;
 
-	AddItem("cylinder", postS * XMMatrixTranslation(leftX, postY, frontZ));
-	AddItem("cylinder", postS * XMMatrixTranslation(rightX, postY, frontZ));
+	const float towerOut = (wallT * 0.5f) + (cylMeshR * scaleXZ);
 
-	// Cones
+	const float TLx = xLeft - towerOut;
+	const float TRx = xRight + towerOut;
+	const float backZ2 = zBack - towerOut;
+	const float frontZ2 = zFront + towerOut;
+
+	AddItem("cylinder", postS * XMMatrixTranslation(TLx, postY, backZ2));
+	AddItem("cylinder", postS * XMMatrixTranslation(TRx, postY, backZ2));
+	AddItem("cylinder", postS * XMMatrixTranslation(TLx, postY, frontZ2));
+	AddItem("cylinder", postS * XMMatrixTranslation(TRx, postY, frontZ2));
+
 	const float postWorldR = cylMeshR * scaleXZ;
 	const float coneWorldR = postWorldR * 1.5f;
 	const float coneWorldH = wallH * 1.8f;
@@ -1036,50 +1006,162 @@ void ShapesApp::BuildRenderItems()
 	XMMATRIX coneS = XMMatrixScaling(coneWorldR, coneWorldH, coneWorldR);
 	const float coneY = postWorldH + (coneWorldH * 0.5f);
 
-	AddItem("cone", coneS * XMMatrixTranslation(leftX, coneY, frontZ));
-	AddItem("cone", coneS * XMMatrixTranslation(rightX, coneY, frontZ));
+	AddItem("cone", coneS * XMMatrixTranslation(TLx, coneY, backZ2));
+	AddItem("cone", coneS * XMMatrixTranslation(TRx, coneY, backZ2));
+	AddItem("cone", coneS * XMMatrixTranslation(TLx, coneY, frontZ2));
+	AddItem("cone", coneS * XMMatrixTranslation(TRx, coneY, frontZ2));
+
+	// Diamonds on cones
+	const float diamondS = 0.55f;
+	const float diamondY = postWorldH + coneWorldH + 0.35f;
+
+	auto AddDiamondOnCone = [&](float x, float z)
+		{
+			AddItem("diamond",
+				XMMatrixScaling(diamondS, diamondS * 1.6f, diamondS) *
+				XMMatrixTranslation(x, diamondY, z));
+		};
+
+	AddDiamondOnCone(TLx, backZ2);
+	AddDiamondOnCone(TRx, backZ2);
+	AddDiamondOnCone(TLx, frontZ2);
+	AddDiamondOnCone(TRx, frontZ2);
 
 	// =====================================================
-	// BIG TORUS GATE (vertical), half underground, thinner
-	// "han kapısı gibi", yarısı yer altında, ince
+	// FOUNTAIN (bird bath) - attach BEHIND the castle
+	// (2 torus bowls + middle cylinder + bottom cylinder)
 	// =====================================================
 	{
-		// gap between cylinder SURFACES
-		const float gap = (rightX - leftX) - (2.0f * postWorldR);
+		// place fountain center behind the back wall
+		const float fountainX = 0.0f;
+		const float fountainZ = zBack - 3.5f;     // <-- "kaleye takılı" arkaya itiyoruz
 
-		// a bit bigger than gap
-		const float outerRadiusWorld = (gap * 1.10f) * 0.5f;
+		// Torus mesh: major=1.0 (CreateTorus(1.0f,...))
+		// We'll scale major radius by S, and also keep it "bowl-like" by scaling Y a bit.
+		const float bowl1Major = 2.4f;   // bottom bowl wider
+		const float bowl2Major = 1.6f;   // top bowl smaller
+		const float bowlYScale = 0.45f;  // squish to feel like basin
 
-		// Torus mesh: major=1, minor=0.30 => outer = 1.3*major
-		const float majorRadiusWorld = outerRadiusWorld / 1.3f;
+		// Bottom pedestal cylinder
+		const float baseCylH = 1.6f;
+		const float baseCylR = 1.1f;
+		AddItem("cylinder",
+			XMMatrixScaling(baseCylR, baseCylH / cylMeshH, baseCylR) *
+			XMMatrixTranslation(fountainX, (baseCylH * 0.5f), fountainZ));
 
-		// thinner ring
-		const float thinFactor = 0.60f;
+		// Middle column cylinder (between bowls)
+		const float colH = 2.2f;
+		const float colR = 0.55f;
+		AddItem("cylinder",
+			XMMatrixScaling(colR, colH / cylMeshH, colR) *
+			XMMatrixTranslation(fountainX, baseCylH + (colH * 0.5f), fountainZ));
 
-		// stand vertical like a gate
-		XMMATRIX torusRot = XMMatrixRotationX(XM_PIDIV2);
-
-		// half underground -> center on ground (Y=0)
-		const float gateY = 0.0f;
-		const float gateZ = frontZ - 0.15f;
-
+		// Bottom bowl (torus)
+		const float bowl1Y = baseCylH + colH + 0.55f;
 		AddItem("torus",
-			torusRot *
-			XMMatrixScaling(majorRadiusWorld, majorRadiusWorld * thinFactor, majorRadiusWorld * thinFactor) *
-			XMMatrixTranslation(0.0f, gateY, gateZ));
+			XMMatrixScaling(bowl1Major, bowlYScale, bowl1Major) *
+			XMMatrixTranslation(fountainX, bowl1Y, fountainZ));
 
-		// Diamond above torus (vertical + floating)
-		const float diamondS = 0.9f;
-		const float diamondY = outerRadiusWorld + 0.7f;
-		AddItem("diamond",
-			XMMatrixScaling(diamondS, diamondS * 1.4f, diamondS) *
-			XMMatrixTranslation(0.0f, diamondY, gateZ));
+		// Small top column
+		const float topColH = 1.2f;
+		const float topColR = 0.35f;
+		AddItem("cylinder",
+			XMMatrixScaling(topColR, topColH / cylMeshH, topColR) *
+			XMMatrixTranslation(fountainX, bowl1Y + 0.65f + (topColH * 0.5f), fountainZ));
+
+		// Top bowl (torus)
+		const float bowl2Y = bowl1Y + 1.55f;
+		AddItem("torus",
+			XMMatrixScaling(bowl2Major, bowlYScale, bowl2Major) *
+			XMMatrixTranslation(fountainX, bowl2Y, fountainZ));
 	}
+	// =====================================================
+// 2 WEDGES (mor) - duvarlara yaslanan rampalar
+// - uzunluk: dayandigi duvar ile paralel
+// - biri sol-front segment duvarina, biri sag-front segment duvarina
+// =====================================================
+
+// Wedge mesh: CreateWedge(2.0f, 1.0f, 2.0f) (senin BuildShapeGeometry’de)
+// Burada sadece SCALE + ROT ile rampaya benzetiyoruz.
+	const float wedgeH = 1.1f;           // rampa yuksekligi
+	const float wedgeThick = 1.6f;       // rampa genisligi (Z ya da X’e gore)
+	const float wedgeLen = frontSegLen;  // dayandigi duvar parcasinin uzunlugu kadar
+
+	// Wedge’i “duvara dogru yukselen” hale getirmek icin hafif donduruyoruz.
+	// Eger ters durursa XMMatrixRotationZ(+/-) isaretini degistir.
+	XMMATRIX wedgeTilt = XMMatrixRotationZ(+0.25f * XM_PI); // ~45 dereceye yakin (istege gore)
+
+	// Sol wedge: front-left segment'e yaslansin
+	{
+		// Front-left segment’in merkezi: (-frontSegCenterOffset, zFront)
+		// Wedge'i biraz iceri aliyoruz ki duvarla temas etsin.
+		float wx = -frontSegCenterOffset;
+		float wz = zFront - (wallT * 0.6f);  // duvarin icine/ustune yaslanma hissi
+		float wy = wedgeH * 0.5f;            // zemine otursun
+
+		// Uzunluk X boyunca (front segment X boyunca)
+		XMMATRIX S = XMMatrixScaling(wedgeLen, wedgeH, wedgeThick);
+		AddItem("wedge", S * wedgeTilt * XMMatrixTranslation(wx, wy, wz));
+	}
+
+	// Sag wedge: front-right segment'e yaslansin
+	{
+		float wx = +frontSegCenterOffset;
+		float wz = zFront - (wallT * 0.6f);
+		float wy = wedgeH * 0.5f;
+
+		// Ayni rampayi simetrik yapmak icin tilt’i ters ceviriyoruz.
+		XMMATRIX wedgeTiltR = XMMatrixRotationZ(-0.25f * XM_PI);
+
+		XMMATRIX S = XMMatrixScaling(wedgeLen, wedgeH, wedgeThick);
+		AddItem("wedge", S * wedgeTiltR * XMMatrixTranslation(wx, wy, wz));
+	}
+
+	// =====================================================
+	// MINI TOWERS (cylinder + cone) - inner walls uclarina
+	// Inner wall'lar: innerLeftX ve innerRightX'te, Z boyunca innerDepth
+	// Uc (arkaya bakan): centerZ - innerDepth/2
+	// =====================================================
+
+	const float innerEndZ = innerCenterZ - (innerDepth * 0.5f); // inner duvarin arka ucu
+
+	// mini cylinder ayarlari (kose kulelerin minik versiyonu)
+	const float miniPostWorldH = wallH * 0.75f;
+	const float miniScaleY = miniPostWorldH / cylMeshH;
+	const float miniScaleXZ = scaleXZ * 0.65f;     // inceltilmis mini
+	XMMATRIX miniPostS = XMMatrixScaling(miniScaleXZ, miniScaleY, miniScaleXZ);
+
+	const float miniPostY = (cylMeshH * miniScaleY) * 0.5f;
+
+	// mini cone
+	const float miniPostWorldR = cylMeshR * miniScaleXZ;
+	const float miniConeWorldR = miniPostWorldR * 1.5f;
+	const float miniConeWorldH = miniPostWorldH * 0.9f; // daha kisa
+
+	XMMATRIX miniConeS = XMMatrixScaling(miniConeWorldR, miniConeWorldH, miniConeWorldR);
+	const float miniConeY = miniPostWorldH + (miniConeWorldH * 0.5f);
+
+	// Sol inner wall ucu mini kule
+	AddItem("cylinder", miniPostS* XMMatrixTranslation(innerLeftX, miniPostY, innerEndZ));
+	AddItem("cone", miniConeS* XMMatrixTranslation(innerLeftX, miniConeY, innerEndZ));
+
+	// Sag inner wall ucu mini kule
+	AddItem("cylinder", miniPostS* XMMatrixTranslation(innerRightX, miniPostY, innerEndZ));
+	AddItem("cone", miniConeS* XMMatrixTranslation(innerRightX, miniConeY, innerEndZ));
+
 
 	// ---------- All opaque ----------
 	for (auto& e : mAllRitems)
 		mOpaqueRitems.push_back(e.get());
 }
+
+
+
+
+
+
+
+
 
 
 
