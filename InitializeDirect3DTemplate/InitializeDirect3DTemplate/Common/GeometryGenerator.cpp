@@ -823,21 +823,22 @@ GeometryGenerator::MeshData GeometryGenerator::CreateWedge(float width, float he
 {
 	MeshData meshData;
 
+	// Half sizes
 	const float w2 = 0.5f * width;
 	const float h2 = 0.5f * height;
 	const float d2 = 0.5f * depth;
 
-	// 6 UNIQUE POINTS (no duplicates):
-	// Bottom rectangle (y = -h2)
+	// Bottom points
 	XMFLOAT3 p0(-w2, -h2, -d2); // left-bottom-front
 	XMFLOAT3 p1(+w2, -h2, -d2); // right-bottom-front
 	XMFLOAT3 p2(+w2, -h2, +d2); // right-bottom-back
 	XMFLOAT3 p3(-w2, -h2, +d2); // left-bottom-back
 
-	// Top edge only on the LEFT side (y = +h2)
+	// Top edge
 	XMFLOAT3 p4(-w2, +h2, -d2); // left-top-front
 	XMFLOAT3 p5(-w2, +h2, +d2); // left-top-back
 
+	// Normal calc
 	auto faceNormal = [](const XMFLOAT3& a, const XMFLOAT3& b, const XMFLOAT3& c) -> XMFLOAT3
 		{
 			XMVECTOR A = XMLoadFloat3(&a);
@@ -850,6 +851,7 @@ GeometryGenerator::MeshData GeometryGenerator::CreateWedge(float width, float he
 			return out;
 		};
 
+	// Triangle builder
 	auto addTri = [&](const XMFLOAT3& a, const XMFLOAT3& b, const XMFLOAT3& c)
 		{
 			XMFLOAT3 n = faceNormal(a, b, c);
@@ -865,6 +867,7 @@ GeometryGenerator::MeshData GeometryGenerator::CreateWedge(float width, float he
 			meshData.Indices32.push_back(start + 2);
 		};
 
+	// Quad builder
 	auto addQuad = [&](const XMFLOAT3& a, const XMFLOAT3& b, const XMFLOAT3& c, const XMFLOAT3& d)
 		{
 			XMFLOAT3 n = faceNormal(a, b, c);
@@ -882,24 +885,24 @@ GeometryGenerator::MeshData GeometryGenerator::CreateWedge(float width, float he
 				});
 		};
 
-	// BOTTOM (rectangle)
+	// Bottom face
 	addQuad(p0, p1, p2, p3);
 
-	// LEFT FACE (rectangle)
+	// Left face
 	addQuad(p0, p3, p5, p4);
 
-	// SLOPED TOP (rectangle)  <-- this is the important slanted face
+	// Sloped top
 	addQuad(p4, p5, p2, p1);
 
-	// FRONT FACE (triangle)
+	// Front face
 	addTri(p0, p4, p1);
 
-	// BACK FACE (triangle)
+	// Back face
 	addTri(p3, p2, p5);
 
-	// RIGHT FACE: actually it's a rectangle at y = -h2, but it's already part of bottom + sloped top.
-	// You don't need a separate "right wall" face because wedge collapses there (no vertical area).
+	// No right wall
 
+	// Return mesh
 	return meshData;
 }
 

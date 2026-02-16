@@ -1076,6 +1076,30 @@ void ShapesApp::BuildRenderItems()
 	AddItem("cylinder", miniPostS * XMMatrixTranslation(innerRightX, miniPostY, innerEndZ)); // mini kule sağ
 	AddItem("cone", miniConeS * XMMatrixTranslation(innerRightX, miniConeY, innerEndZ)); // mini çatı
 
+	// SMALL WEDGE 
+	{
+
+		const float wedgeMeshW = 2.0f;
+		const float wedgeMeshH = 1.0f;
+		const float wedgeMeshD = 2.0f;
+		const float wedgeW = 1.2f;
+		const float wedgeH = 0.6f;
+		const float wedgeD = 1.6f;
+		const float wsX = wedgeW / wedgeMeshW;
+		const float wsY = wedgeH / wedgeMeshH;
+		const float wsZ = wedgeD / wedgeMeshD;
+
+		// Place it right in front of the tent (same X, slightly smaller Z)
+		const float wedgeX = tentX;
+		const float wedgeZ = tentZ - (tentD * 0.5f) - 0.9f;   // in front of tent
+		const float wedgeY = wedgeH * 0.5f;                   // sit on ground
+
+		// Optional: rotate a bit so it looks nicer
+		XMMATRIX W =XMMatrixScaling(wsX, wsY, wsZ) *XMMatrixRotationY(XMConvertToRadians(45.0f)) *XMMatrixTranslation(wedgeX, wedgeY, wedgeZ);
+
+		AddItem("wedge", W);
+	}
+
 	for (auto& e : mAllRitems)
 		mOpaqueRitems.push_back(e.get()); 
 }
