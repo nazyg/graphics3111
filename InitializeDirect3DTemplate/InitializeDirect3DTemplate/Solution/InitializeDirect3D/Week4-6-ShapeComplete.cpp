@@ -534,7 +534,6 @@ void ShapesApp::BuildShadersAndInputLayout()
 	};
 }
 
-
 void ShapesApp::BuildShapeGeometry()
 {
 	GeometryGenerator geoGen;
@@ -816,8 +815,6 @@ void ShapesApp::BuildPSOs()
 	ThrowIfFailed(md3dDevice->CreateGraphicsPipelineState(&opaqueWireframePsoDesc, IID_PPV_ARGS(&mPSOs["opaque_wireframe"])));
 }
 
-
-
 void ShapesApp::BuildFrameResources()
 {
 	for (int i = 0; i < gNumFrameResources; ++i)
@@ -827,310 +824,233 @@ void ShapesApp::BuildFrameResources()
 	}
 }
 
-
 void ShapesApp::BuildRenderItems()
 {
 	UINT objCBIndex = 0;
 
-	// ---------- GRID ----------
-	auto gridRitem = std::make_unique<RenderItem>();
-	gridRitem->World = MathHelper::Identity4x4();
-	gridRitem->ObjCBIndex = objCBIndex++;
-	gridRitem->Geo = mGeometries["shapeGeo"].get();
-	gridRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-	gridRitem->IndexCount = gridRitem->Geo->DrawArgs["grid"].IndexCount;
-	gridRitem->StartIndexLocation = gridRitem->Geo->DrawArgs["grid"].StartIndexLocation;
-	gridRitem->BaseVertexLocation = gridRitem->Geo->DrawArgs["grid"].BaseVertexLocation;
-	mAllRitems.push_back(std::move(gridRitem));
+	// ===== GRID =====
+	auto gridRitem = std::make_unique<RenderItem>(); // obje oluştur
+	gridRitem->World = MathHelper::Identity4x4(); // merkezde dur
+	gridRitem->ObjCBIndex = objCBIndex++; // CB index ata
+	gridRitem->Geo = mGeometries["shapeGeo"].get(); // mesh seç
+	gridRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST; // üçgen çiz
+	gridRitem->IndexCount = gridRitem->Geo->DrawArgs["grid"].IndexCount; // index sayısı
+	gridRitem->StartIndexLocation = gridRitem->Geo->DrawArgs["grid"].StartIndexLocation; // başlangıç index
+	gridRitem->BaseVertexLocation = gridRitem->Geo->DrawArgs["grid"].BaseVertexLocation; // vertex offset
+	mAllRitems.push_back(std::move(gridRitem)); // listeye ekle
 
-	// ---------- helper ----------
+	// ===== HELPER =====
 	auto AddItem = [&](const std::string& key, const XMMATRIX& world)
 		{
-			auto r = std::make_unique<RenderItem>();
-			XMStoreFloat4x4(&r->World, world);
-
-			r->ObjCBIndex = objCBIndex++;
-			r->Geo = mGeometries["shapeGeo"].get();
-			r->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-
-			r->IndexCount = r->Geo->DrawArgs[key].IndexCount;
-			r->StartIndexLocation = r->Geo->DrawArgs[key].StartIndexLocation;
-			r->BaseVertexLocation = r->Geo->DrawArgs[key].BaseVertexLocation;
-
-			mAllRitems.push_back(std::move(r));
+			auto r = std::make_unique<RenderItem>(); // obje oluştur
+			XMStoreFloat4x4(&r->World, world); // transform ata
+			r->ObjCBIndex = objCBIndex++; // index ver
+			r->Geo = mGeometries["shapeGeo"].get(); // mesh seç
+			r->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST; // üçgen çiz
+			r->IndexCount = r->Geo->DrawArgs[key].IndexCount; // index al
+			r->StartIndexLocation = r->Geo->DrawArgs[key].StartIndexLocation; // başlangıç index
+			r->BaseVertexLocation = r->Geo->DrawArgs[key].BaseVertexLocation; // vertex offset
+			mAllRitems.push_back(std::move(r)); // sahneye ekle
 		};
 
-	// BASE SETTINGS (Castle centered on green)
-	const float castleZ = 0.0f;   
+	//CASTLE BASE SETTINGS
+	const float castleZ = 0.0f; // merkez Z
+	const float uW = 12.0f; // genişlik X
+	const float uD = 8.0f; // derinlik Z
+	const float wallH = 4.0f; // duvar yükseklik
+	const float wallT = 0.25f; // duvar kalınlık
+	const float wallY = wallH * 0.5f; // yer hizası
+	const float xLeft = -uW * 0.5f; // sol sınır
+	const float xRight = +uW * 0.5f; // sağ sınır
+	const float zBack = castleZ - uD * 0.5f; // arka sınır
+	const float zFront = castleZ + uD * 0.5f; // ön sınır
 
-	const float uW = 12.0f; // width X (outer)
-	const float uD = 8.0f;  // depth Z (outer)
-
-	const float wallH = 4.0f;
-	const float wallT = 0.25f;
-	const float wallY = wallH * 0.5f;
-
-	const float xLeft = -uW * 0.5f;
-	const float xRight = +uW * 0.5f;
-
-	const float zBack = castleZ - uD * 0.5f;
-	const float zFront = castleZ + uD * 0.5f;
-
-	// Door gap width on the FRONT side
-	const float gateGapW = 4.0f;
-	
-	// Back wall (full along X)
-	AddItem("box",
-		XMMatrixScaling(uW, wallH, wallT) *
-		XMMatrixTranslation(0.0f, wallY, zBack));
-
-	// Left wall (full along Z)
-	AddItem("box",
-		XMMatrixScaling(wallT, wallH, uD) *
-		XMMatrixTranslation(xLeft, wallY, castleZ));
-
-	// Right wall (full along Z)
-	AddItem("box",
-		XMMatrixScaling(wallT, wallH, uD) *
-		XMMatrixTranslation(xRight, wallY, castleZ));
-
-	// Front wall split into two segments (leave gap in middle)
-	const float frontSegLen = (uW - gateGapW) * 0.5f;
-	const float frontSegCenterOffset = (gateGapW * 0.5f) + (frontSegLen * 0.5f);
-
-	// Front-left segment
-	AddItem("box",
-		XMMatrixScaling(frontSegLen, wallH, wallT) *
-		XMMatrixTranslation(-frontSegCenterOffset, wallY, zFront));
-
-	// Front-right segment
-	AddItem("box",
-		XMMatrixScaling(frontSegLen, wallH, wallT) *
-		XMMatrixTranslation(+frontSegCenterOffset, wallY, zFront));
-
+	// GATE GAP 
+	const float gateGapW = 4.0f; // kapı boşluk
+	// BACK WALL
+	AddItem("box", XMMatrixScaling(uW, wallH, wallT) * XMMatrixTranslation(0.0f, wallY, zBack)); // arka duvar
+	// LEFT WALL
+	AddItem("box", XMMatrixScaling(wallT, wallH, uD) * XMMatrixTranslation(xLeft, wallY, castleZ)); // sol duvar
+	// RIGHT WALL
+	AddItem("box", XMMatrixScaling(wallT, wallH, uD) * XMMatrixTranslation(xRight, wallY, castleZ)); // sağ duvar
+	// FRONT WALL SPLIT 
+	const float frontSegLen = (uW - gateGapW) * 0.5f; // parça uzunluk
+	const float frontSegCenterOffset = (gateGapW * 0.5f) + (frontSegLen * 0.5f); // merkez offset
+	// FRONT LEFT WALL
+	AddItem("box", XMMatrixScaling(frontSegLen, wallH, wallT) * XMMatrixTranslation(-frontSegCenterOffset, wallY, zFront)); // sol ön duvar
+	// FRONT RIGHT WALL
+	AddItem("box", XMMatrixScaling(frontSegLen, wallH, wallT) * XMMatrixTranslation(+frontSegCenterOffset, wallY, zFront)); // sağ ön duvar
 	// INNER WALLS 
-	const float innerDepth = 4.0f;
-	const float innerCenterZ = zFront - (wallT * 0.5f) - (innerDepth * 0.5f);
+	const float innerDepth = 4.0f; // iç uzunluk
+	const float innerCenterZ = zFront - (wallT * 0.5f) - (innerDepth * 0.5f); // iç merkez
+	const float innerLeftX = -gateGapW * 0.5f; // sol iç
+	const float innerRightX = +gateGapW * 0.5f; // sağ iç
+	AddItem("box", XMMatrixScaling(wallT, wallH, innerDepth) * XMMatrixTranslation(innerLeftX, wallY, innerCenterZ)); // sol iç duvar
+	AddItem("box", XMMatrixScaling(wallT, wallH, innerDepth) * XMMatrixTranslation(innerRightX, wallY, innerCenterZ)); // sağ iç duvar
 
-	const float innerLeftX = -gateGapW * 0.5f;
-	const float innerRightX = +gateGapW * 0.5f;
-
-	AddItem("box",
-		XMMatrixScaling(wallT, wallH, innerDepth) *
-		XMMatrixTranslation(innerLeftX, wallY, innerCenterZ));
-
-	AddItem("box",
-		XMMatrixScaling(wallT, wallH, innerDepth) *
-		XMMatrixTranslation(innerRightX, wallY, innerCenterZ));
-
-	// WALL TEETH 
-	
-	const float toothW = 1.0f;
-	const float toothH = 0.6f;
-	const float toothTopY = wallH + toothH * 0.5f;
+	// WALL TEETH
+	const float toothW = 1.0f; // diş genişlik
+	const float toothH = 0.6f; // diş yükseklik
+	const float toothTopY = wallH + toothH * 0.5f; // üst seviye
 
 	auto AddTeethAlongX = [&](float zWall, float xMin, float xMax)
 		{
-			int idx = 0;
+			int idx = 0; // sayaç
 			for (float x = xMin + toothW * 0.5f; x <= xMax - toothW * 0.5f; x += toothW, ++idx)
 			{
-				if ((idx % 2) == 0)
+				if ((idx % 2) == 0) // aralıklı diş
 				{
-					AddItem("box",
-						XMMatrixScaling(toothW, toothH, wallT) *
-						XMMatrixTranslation(x, toothTopY, zWall));
+					AddItem("box", XMMatrixScaling(toothW, toothH, wallT) * XMMatrixTranslation(x, toothTopY, zWall)); // diş ekle
 				}
 			}
 		};
 
 	auto AddTeethAlongZ = [&](float xWall, float zMin, float zMax)
 		{
-			int idx = 0;
+			int idx = 0; // sayaç
 			for (float z = zMin + toothW * 0.5f; z <= zMax - toothW * 0.5f; z += toothW, ++idx)
 			{
-				if ((idx % 2) == 0)
+				if ((idx % 2) == 0) // aralıklı diş
 				{
-					AddItem("box",
-						XMMatrixScaling(wallT, toothH, toothW) *
-						XMMatrixTranslation(xWall, toothTopY, z));
+					AddItem("box", XMMatrixScaling(wallT, toothH, toothW) * XMMatrixTranslation(xWall, toothTopY, z)); // diş ekle
 				}
 			}
 		};
 
-	AddTeethAlongX(zBack, xLeft, xRight);
-	AddTeethAlongZ(xLeft, zBack, zFront);
-	AddTeethAlongZ(xRight, zBack, zFront);
-	AddTeethAlongX(zFront, xLeft, -gateGapW * 0.5f);
-	AddTeethAlongX(zFront, +gateGapW * 0.5f, xRight);
+	AddTeethAlongX(zBack, xLeft, xRight); // arka diş
+	AddTeethAlongZ(xLeft, zBack, zFront); // sol diş
+	AddTeethAlongZ(xRight, zBack, zFront); // sağ diş
+	AddTeethAlongX(zFront, xLeft, -gateGapW * 0.5f); // ön sol diş
+	AddTeethAlongX(zFront, +gateGapW * 0.5f, xRight); // ön sağ diş
 
-	
-	// CORNER TOWERS (CYLINDER + CONE) at 4 corners
-	const float cylMeshH = 3.0f;
-	const float cylMeshR = 0.5f;
+	// CORNER TOWERS 
+	const float cylMeshH = 3.0f; // mesh yükseklik
+	const float cylMeshR = 0.5f; // mesh yarıçap
+	const float postWorldH = wallH + 0.6f; // kule boy
+	const float scaleY = postWorldH / cylMeshH; // Y scale
+	const float scaleXZ = 1.15f; // XZ scale
+	XMMATRIX postS = XMMatrixScaling(scaleXZ, scaleY, scaleXZ); // scale matrix
+	const float postY = (cylMeshH * scaleY) * 0.5f; // Y konum
+	const float towerOut = (wallT * 0.5f) + (cylMeshR * scaleXZ); // dış offset
 
-	const float postWorldH = wallH + 0.6f;
-	const float scaleY = postWorldH / cylMeshH;
+	const float TLx = xLeft - towerOut; // sol üst X
+	const float TRx = xRight + towerOut; // sağ üst X
+	const float backZ2 = zBack - towerOut; // arka Z
+	const float frontZ2 = zFront + towerOut; // ön Z
 
-	const float scaleXZ = 1.15f;
+	AddItem("cylinder", postS * XMMatrixTranslation(TLx, postY, backZ2)); // kule arka sol
+	AddItem("cylinder", postS * XMMatrixTranslation(TRx, postY, backZ2)); // kule arka sağ
+	AddItem("cylinder", postS * XMMatrixTranslation(TLx, postY, frontZ2)); // kule ön sol
+	AddItem("cylinder", postS * XMMatrixTranslation(TRx, postY, frontZ2)); // kule ön sağ
 
-	XMMATRIX postS = XMMatrixScaling(scaleXZ, scaleY, scaleXZ);
-	const float postY = (cylMeshH * scaleY) * 0.5f;
+	const float postWorldR = cylMeshR * scaleXZ; // kule yarıçap
+	const float coneWorldR = postWorldR * 1.5f; // çatı yarıçap
+	const float coneWorldH = wallH * 1.8f; // çatı yükseklik
 
-	const float towerOut = (wallT * 0.5f) + (cylMeshR * scaleXZ);
+	XMMATRIX coneS = XMMatrixScaling(coneWorldR, coneWorldH, coneWorldR); // cone scale
+	const float coneY = postWorldH + (coneWorldH * 0.5f); // çatı Y
 
-	const float TLx = xLeft - towerOut;
-	const float TRx = xRight + towerOut;
-	const float backZ2 = zBack - towerOut;
-	const float frontZ2 = zFront + towerOut;
-
-	AddItem("cylinder", postS * XMMatrixTranslation(TLx, postY, backZ2));
-	AddItem("cylinder", postS * XMMatrixTranslation(TRx, postY, backZ2));
-	AddItem("cylinder", postS * XMMatrixTranslation(TLx, postY, frontZ2));
-	AddItem("cylinder", postS * XMMatrixTranslation(TRx, postY, frontZ2));
-
-	const float postWorldR = cylMeshR * scaleXZ;
-	const float coneWorldR = postWorldR * 1.5f;
-	const float coneWorldH = wallH * 1.8f;
-
-	XMMATRIX coneS = XMMatrixScaling(coneWorldR, coneWorldH, coneWorldR);
-	const float coneY = postWorldH + (coneWorldH * 0.5f);
-
-	AddItem("cone", coneS * XMMatrixTranslation(TLx, coneY, backZ2));
+	AddItem("cone", coneS * XMMatrixTranslation(TLx, coneY, backZ2)); // çatı
 	AddItem("cone", coneS * XMMatrixTranslation(TRx, coneY, backZ2));
 	AddItem("cone", coneS * XMMatrixTranslation(TLx, coneY, frontZ2));
 	AddItem("cone", coneS * XMMatrixTranslation(TRx, coneY, frontZ2));
 
-	// Diamonds on cones
-	const float diamondS = 0.55f;
-	const float diamondY = postWorldH + coneWorldH + 0.35f;
+	// DIAMONDS 
+	const float diamondS = 0.55f; // boyut
+	const float diamondY = postWorldH + coneWorldH + 0.35f; // yükseklik
 
 	auto AddDiamondOnCone = [&](float x, float z)
 		{
-			AddItem("diamond",
-				XMMatrixScaling(diamondS, diamondS * 1.6f, diamondS) *
-				XMMatrixTranslation(x, diamondY, z));
+			AddItem("diamond", XMMatrixScaling(diamondS, diamondS * 1.6f, diamondS) * XMMatrixTranslation(x, diamondY, z)); // süs ekle
 		};
 
-	AddDiamondOnCone(TLx, backZ2);
+	AddDiamondOnCone(TLx, backZ2); // süs
 	AddDiamondOnCone(TRx, backZ2);
 	AddDiamondOnCone(TLx, frontZ2);
 	AddDiamondOnCone(TRx, frontZ2);
 
-	
-	// FOUNTAIN 
-	// 2 torus bowls + middle cylinder + bottom cylinder
+	// ===== WEDGE (SIMPLE RAMP) =====
 
+// CreateWedge(2,1,2) base ölçülerine göre ölçek çarpanı hesaplayalım
+	const float baseW = 2.0f; // wedge mesh X
+	const float baseH = 1.0f; // wedge mesh Y
+	const float baseD = 2.0f; // wedge mesh Z
+
+	// İstediğin gerçek boyutlar (kısa)
+	const float wedgeLen = 3.0f;  // X uzunluk
+	const float wedgeH = 1.0f;  // Y yükseklik
+	const float wedgeThick = 1.2f;  // Z kalınlık
+
+	// Ölçek (boyut/mesh)
+	XMMATRIX S = XMMatrixScaling(wedgeLen / baseW, wedgeH / baseH, wedgeThick / baseD);
+
+	// 45 derece
+	const float a = 0.25f * XM_PI; // 45°
+
+	// Konum: kalenin önü + zemine otursun
+	const float wx = 0.0f;          // ortada
+	const float wz = zFront + 1.0f; // ön tarafta
+	const float wy = wedgeH * 0.5f; // zemine oturur (Y=0 üstünde)
+
+	// WEDGE ekle
+	AddItem("wedge", S* XMMatrixRotationZ(-a)* XMMatrixTranslation(wx, wy, wz));
+
+	//  FOUNTAIN 
 	{
-		// place fountain center behind the back wall
-		const float fountainX = 0.0f;
-		const float fountainZ = zBack - 3.5f;     
+		const float fountainX = 0.0f; // merkez X
+		const float fountainZ = zBack - 3.5f; // arka konum
 
-		// Torus mesh
-		
-		const float bowl1Major = 2.4f;   
-		const float bowl2Major = 1.6f;  
-		const float bowlYScale = 0.45f;  
+		const float bowl1Major = 2.4f; // alt çap
+		const float bowl2Major = 1.6f; // üst çap
+		const float bowlYScale = 0.45f; // Y scale
 
-		// Bottom pedestal cylinder
-		const float baseCylH = 1.6f;
-		const float baseCylR = 1.1f;
-		AddItem("cylinder",
-			XMMatrixScaling(baseCylR, baseCylH / cylMeshH, baseCylR) *
-			XMMatrixTranslation(fountainX, (baseCylH * 0.5f), fountainZ));
+		const float baseCylH = 1.6f; // taban yükseklik
+		const float baseCylR = 1.1f; // taban yarıçap
+		AddItem("cylinder", XMMatrixScaling(baseCylR, baseCylH / cylMeshH, baseCylR) * XMMatrixTranslation(fountainX, (baseCylH * 0.5f), fountainZ)); // alt silindir
 
-		// Middle column cylinder (between bowls)
-		const float colH = 2.2f;
-		const float colR = 0.55f;
-		AddItem("cylinder",
-			XMMatrixScaling(colR, colH / cylMeshH, colR) *
-			XMMatrixTranslation(fountainX, baseCylH + (colH * 0.5f), fountainZ));
+		const float colH = 2.2f; // orta yükseklik
+		const float colR = 0.55f; // orta yarıçap
+		AddItem("cylinder", XMMatrixScaling(colR, colH / cylMeshH, colR) * XMMatrixTranslation(fountainX, baseCylH + (colH * 0.5f), fountainZ)); // orta silindir
 
-		// Bottom bowl (torus)
-		const float bowl1Y = baseCylH + colH + 0.55f;
-		AddItem("torus",
-			XMMatrixScaling(bowl1Major, bowlYScale, bowl1Major) *
-			XMMatrixTranslation(fountainX, bowl1Y, fountainZ));
+		const float bowl1Y = baseCylH + colH + 0.55f; // alt kase Y
+		AddItem("torus", XMMatrixScaling(bowl1Major, bowlYScale, bowl1Major) * XMMatrixTranslation(fountainX, bowl1Y, fountainZ)); // alt kase
 
-		// Small top column
-		const float topColH = 1.2f;
-		const float topColR = 0.35f;
-		AddItem("cylinder",
-			XMMatrixScaling(topColR, topColH / cylMeshH, topColR) *
-			XMMatrixTranslation(fountainX, bowl1Y + 0.65f + (topColH * 0.5f), fountainZ));
+		const float topColH = 1.2f; // üst kolon yükseklik
+		const float topColR = 0.35f; // üst kolon yarıçap
+		AddItem("cylinder", XMMatrixScaling(topColR, topColH / cylMeshH, topColR) * XMMatrixTranslation(fountainX, bowl1Y + 0.65f + (topColH * 0.5f), fountainZ)); // üst kolon
 
-		// Top bowl (torus)
-		const float bowl2Y = bowl1Y + 1.55f;
-		AddItem("torus",
-			XMMatrixScaling(bowl2Major, bowlYScale, bowl2Major) *
-			XMMatrixTranslation(fountainX, bowl2Y, fountainZ));
-	}
-
-// 2 WEDGES
-	const float wedgeH = 1.1f;          
-	const float wedgeThick = 1.6f;       
-	const float wedgeLen = frontSegLen;  
-
-	
-	XMMATRIX wedgeTilt = XMMatrixRotationZ(+0.25f * XM_PI); 
-
-	{
-		float wx = -frontSegCenterOffset;
-		float wz = zFront - (wallT * 0.6f);  // duvarin icine/ustune yaslanma hissi
-		float wy = wedgeH * 0.5f;            // zemine otursun
-
-		// Uzunluk X boyunca (front segment X boyunca)
-		XMMATRIX S = XMMatrixScaling(wedgeLen, wedgeH, wedgeThick);
-		AddItem("wedge", S * wedgeTilt * XMMatrixTranslation(wx, wy, wz));
-	}
-
-	// Sag wedge: front-right segment'e yaslansin
-	{
-		float wx = +frontSegCenterOffset;
-		float wz = zFront - (wallT * 0.6f);
-		float wy = wedgeH * 0.5f;
-
-		// Ayni rampayi simetrik yapmak icin tilt’i ters ceviriyoruz.
-		XMMATRIX wedgeTiltR = XMMatrixRotationZ(-0.25f * XM_PI);
-
-		XMMATRIX S = XMMatrixScaling(wedgeLen, wedgeH, wedgeThick);
-		AddItem("wedge", S * wedgeTiltR * XMMatrixTranslation(wx, wy, wz));
+		const float bowl2Y = bowl1Y + 1.55f; // üst kase Y
+		AddItem("torus", XMMatrixScaling(bowl2Major, bowlYScale, bowl2Major) * XMMatrixTranslation(fountainX, bowl2Y, fountainZ)); // üst kase
 	}
 
 	
-	// MINI TOWERS (cylinder + cone) 
-	
-	const float innerEndZ = innerCenterZ - (innerDepth * 0.5f); // inner duvarin arka ucu
 
-	// mini cylinder 
-	const float miniPostWorldH = wallH * 0.75f;
-	const float miniScaleY = miniPostWorldH / cylMeshH;
-	const float miniScaleXZ = scaleXZ * 0.65f;     // inceltilmis mini
-	XMMATRIX miniPostS = XMMatrixScaling(miniScaleXZ, miniScaleY, miniScaleXZ);
+	// MINI TOWERS
+	const float innerEndZ = innerCenterZ - (innerDepth * 0.5f); // arka uç
 
-	const float miniPostY = (cylMeshH * miniScaleY) * 0.5f;
+	const float miniPostWorldH = wallH * 0.75f; // mini boy
+	const float miniScaleY = miniPostWorldH / cylMeshH; // scale Y
+	const float miniScaleXZ = scaleXZ * 0.65f; // scale XZ
+	XMMATRIX miniPostS = XMMatrixScaling(miniScaleXZ, miniScaleY, miniScaleXZ); // scale matrix
 
-	// mini cone
-	const float miniPostWorldR = cylMeshR * miniScaleXZ;
-	const float miniConeWorldR = miniPostWorldR * 1.5f;
-	const float miniConeWorldH = miniPostWorldH * 0.9f; 
+	const float miniPostY = (cylMeshH * miniScaleY) * 0.5f; // Y konum
 
-	XMMATRIX miniConeS = XMMatrixScaling(miniConeWorldR, miniConeWorldH, miniConeWorldR);
-	const float miniConeY = miniPostWorldH + (miniConeWorldH * 0.5f);
+	const float miniPostWorldR = cylMeshR * miniScaleXZ; // yarıçap
+	const float miniConeWorldR = miniPostWorldR * 1.5f; // cone yarıçap
+	const float miniConeWorldH = miniPostWorldH * 0.9f; // cone boy
 
-	// Sol inner wall ucu mini kule
-	AddItem("cylinder", miniPostS* XMMatrixTranslation(innerLeftX, miniPostY, innerEndZ));
-	AddItem("cone", miniConeS* XMMatrixTranslation(innerLeftX, miniConeY, innerEndZ));
+	XMMATRIX miniConeS = XMMatrixScaling(miniConeWorldR, miniConeWorldH, miniConeWorldR); // scale
+	const float miniConeY = miniPostWorldH + (miniConeWorldH * 0.5f); // Y konum
 
-	// Sag inner wall ucu mini kule
-	AddItem("cylinder", miniPostS* XMMatrixTranslation(innerRightX, miniPostY, innerEndZ));
-	AddItem("cone", miniConeS* XMMatrixTranslation(innerRightX, miniConeY, innerEndZ));
+	AddItem("cylinder", miniPostS * XMMatrixTranslation(innerLeftX, miniPostY, innerEndZ)); // mini kule sol
+	AddItem("cone", miniConeS * XMMatrixTranslation(innerLeftX, miniConeY, innerEndZ)); // mini çatı
 
+	AddItem("cylinder", miniPostS * XMMatrixTranslation(innerRightX, miniPostY, innerEndZ)); // mini kule sağ
+	AddItem("cone", miniConeS * XMMatrixTranslation(innerRightX, miniConeY, innerEndZ)); // mini çatı
 
-	// ---------- All opaque ----------
 	for (auto& e : mAllRitems)
-		mOpaqueRitems.push_back(e.get());
+		mOpaqueRitems.push_back(e.get()); // çizim listesi
 }
-
 
 
 void ShapesApp::DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::vector<RenderItem*>& ritems)
