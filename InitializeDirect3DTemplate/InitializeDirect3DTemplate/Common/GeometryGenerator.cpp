@@ -273,7 +273,6 @@ void GeometryGenerator::Subdivide(MeshData& meshData)
 		meshData.Indices32.push_back(i*6+4);
 	}
 }
-
 GeometryGenerator::Vertex GeometryGenerator::MidPoint(const Vertex& v0, const Vertex& v1)
 {
     XMVECTOR p0 = XMLoadFloat3(&v0.Position);
@@ -303,7 +302,6 @@ GeometryGenerator::Vertex GeometryGenerator::MidPoint(const Vertex& v0, const Ve
 
     return v;
 }
-
 GeometryGenerator::MeshData GeometryGenerator::CreateGeosphere(float radius, uint32 numSubdivisions)
 {
     MeshData meshData;
@@ -378,7 +376,6 @@ GeometryGenerator::MeshData GeometryGenerator::CreateGeosphere(float radius, uin
 
     return meshData;
 }
-
 GeometryGenerator::MeshData GeometryGenerator::CreateCylinder(float bottomRadius, float topRadius, float height, uint32 sliceCount, uint32 stackCount)
 {
     MeshData meshData;
@@ -472,7 +469,6 @@ GeometryGenerator::MeshData GeometryGenerator::CreateCylinder(float bottomRadius
 
     return meshData;
 }
-
 void GeometryGenerator::BuildCylinderTopCap(float bottomRadius, float topRadius, float height,
 											uint32 sliceCount, uint32 stackCount, MeshData& meshData)
 {
@@ -508,7 +504,6 @@ void GeometryGenerator::BuildCylinderTopCap(float bottomRadius, float topRadius,
 		meshData.Indices32.push_back(baseIndex + i);
 	}
 }
-
 void GeometryGenerator::BuildCylinderBottomCap(float bottomRadius, float topRadius, float height,
 											   uint32 sliceCount, uint32 stackCount, MeshData& meshData)
 {
@@ -547,6 +542,7 @@ void GeometryGenerator::BuildCylinderBottomCap(float bottomRadius, float topRadi
 		meshData.Indices32.push_back(baseIndex + i+1);
 	}
 }
+
 
 GeometryGenerator::MeshData GeometryGenerator::CreateGrid(float width, float depth, uint32 m, uint32 n)
 {
@@ -612,7 +608,6 @@ GeometryGenerator::MeshData GeometryGenerator::CreateGrid(float width, float dep
 
     return meshData;
 }
-
 GeometryGenerator::MeshData GeometryGenerator::CreateQuad(float x, float y, float w, float h, float depth)
 {
     MeshData meshData;
@@ -655,26 +650,27 @@ GeometryGenerator::MeshData GeometryGenerator::CreateQuad(float x, float y, floa
 
     return meshData;
 }
+
 GeometryGenerator::MeshData GeometryGenerator::CreateCone(float radius, float height, uint32 sliceCount, uint32 stackCount)
 {
 	// A cone is just a cylinder with topRadius = 0.
 	return CreateCylinder(radius, 0.0f, height, sliceCount, stackCount);
 }
-
 GeometryGenerator::MeshData GeometryGenerator::CreateTorus(float majorRadius, uint32 sliceCount, uint32 stackCount)
 {
 	MeshData meshData;
 
-	// Minor (tube) radius: keep it smaller than major radius.
-	const float minorRadius = majorRadius * 0.30f;
+	// Minor radius: keep it smaller than major radius.
+	const float minorRadius = majorRadius * 0.30f; //Tube thickness
 
-	// We build a grid of (stackCount+1) by (sliceCount+1) vertices.
+	// build a grid of (stackCount+1) by (sliceCount+1) vertices.
 	// u: around the ring, v: around the tube.
-	const uint32 ringSegs = sliceCount;
-	const uint32 tubeSegs = stackCount;
+	const uint32 ringSegs = sliceCount;				//Resolution of the mesh
+	const uint32 tubeSegs = stackCount;				//Build a(tubeSegs + 1) x(ringSegs + 1) grid of vertices
 
 	for (uint32 i = 0; i <= tubeSegs; ++i)
 	{
+		// PARAM v in [0..1] maps to phi in [0..2PI] (around the tube)
 		const float v = (float)i / tubeSegs;         // 0..1
 		const float phi = v * XM_2PI;                // 0..2pi
 
@@ -689,12 +685,19 @@ GeometryGenerator::MeshData GeometryGenerator::CreateTorus(float majorRadius, ui
 			const float cosTheta = cosf(theta);
 			const float sinTheta = sinf(theta);
 
+			// POSITION — Torus parameterization:
+			// First find the tube centerline point on the big ring:
+			//   (cx, 0, cz) = (majorRadius*cosTheta, 0, majorRadius*sinTheta)
+			// Then offset outwards by the tube radius in the local tube circle:
+			//   x/z are expanded by (majorRadius + minorRadius*cosPhi)
+			//   y moves by minorRadius*sinPhi
+			
 			// Position (y is up)
 			const float x = (majorRadius + minorRadius * cosPhi) * cosTheta;
 			const float z = (majorRadius + minorRadius * cosPhi) * sinTheta;
 			const float y = minorRadius * sinPhi;
 
-			// Normal: from tube center to surface
+			// CENTERLINE
 			const float cx = majorRadius * cosTheta;
 			const float cz = majorRadius * sinTheta;
 			XMFLOAT3 normal(x - cx, y - 0.0f, z - cz);
@@ -703,10 +706,11 @@ GeometryGenerator::MeshData GeometryGenerator::CreateTorus(float majorRadius, ui
 			n = XMVector3Normalize(n);
 			XMStoreFloat3(&normal, n);
 
-			// Tangent (approx along theta direction)
+			// Tangent Approx tangent along the ring direction 
 			XMFLOAT3 tangent(-sinTheta, 0.0f, cosTheta);
 
-			// UV
+			// UV texture coordinates :
+			// u wraps around the ring, v wraps around the tube
 			XMFLOAT2 uv(u, v);
 
 			meshData.Vertices.emplace_back(
@@ -725,6 +729,7 @@ GeometryGenerator::MeshData GeometryGenerator::CreateTorus(float majorRadius, ui
 	{
 		for (uint32 j = 0; j < ringSegs; ++j)
 		{
+			//QUAD CORNERS — Indices for one grid cell(quad).
 			const uint32 a = i * stride + j;
 			const uint32 b = (i + 1) * stride + j;
 			const uint32 c = (i + 1) * stride + (j + 1);
@@ -773,7 +778,7 @@ GeometryGenerator::MeshData GeometryGenerator::CreatePyramid(float width, float 
 			return out;
 		};
 
-	// We duplicate vertices per face to keep normals clean.
+	// duplicate vertices per face to keep normals clean.
 
 	// Base (two triangles) normal points downward
 	XMFLOAT3 nBase(0.0f, -1.0f, 0.0f);
@@ -822,18 +827,16 @@ GeometryGenerator::MeshData GeometryGenerator::CreateWedge(float width, float he
 	const float h2 = 0.5f * height;
 	const float d2 = 0.5f * depth;
 
-	// Wedge shape:
-	// Left top edge at y=+h2, right top edge at y=-h2 (slanted top).
+	// 6 UNIQUE POINTS (no duplicates):
+	// Bottom rectangle (y = -h2)
 	XMFLOAT3 p0(-w2, -h2, -d2); // left-bottom-front
 	XMFLOAT3 p1(+w2, -h2, -d2); // right-bottom-front
 	XMFLOAT3 p2(+w2, -h2, +d2); // right-bottom-back
 	XMFLOAT3 p3(-w2, -h2, +d2); // left-bottom-back
 
+	// Top edge only on the LEFT side (y = +h2)
 	XMFLOAT3 p4(-w2, +h2, -d2); // left-top-front
 	XMFLOAT3 p5(-w2, +h2, +d2); // left-top-back
-	// right-top points are same as bottom (slant down)
-	XMFLOAT3 p6(+w2, -h2, -d2); // right-top-front (same as p1)
-	XMFLOAT3 p7(+w2, -h2, +d2); // right-top-back  (same as p2)
 
 	auto faceNormal = [](const XMFLOAT3& a, const XMFLOAT3& b, const XMFLOAT3& c) -> XMFLOAT3
 		{
@@ -845,6 +848,21 @@ GeometryGenerator::MeshData GeometryGenerator::CreateWedge(float width, float he
 			XMFLOAT3 out;
 			XMStoreFloat3(&out, n);
 			return out;
+		};
+
+	auto addTri = [&](const XMFLOAT3& a, const XMFLOAT3& b, const XMFLOAT3& c)
+		{
+			XMFLOAT3 n = faceNormal(a, b, c);
+			XMFLOAT3 t(1, 0, 0);
+
+			uint32 start = (uint32)meshData.Vertices.size();
+			meshData.Vertices.emplace_back(a, n, t, XMFLOAT2(0, 1));
+			meshData.Vertices.emplace_back(b, n, t, XMFLOAT2(1, 1));
+			meshData.Vertices.emplace_back(c, n, t, XMFLOAT2(0.5f, 0));
+
+			meshData.Indices32.push_back(start + 0);
+			meshData.Indices32.push_back(start + 1);
+			meshData.Indices32.push_back(start + 2);
 		};
 
 	auto addQuad = [&](const XMFLOAT3& a, const XMFLOAT3& b, const XMFLOAT3& c, const XMFLOAT3& d)
@@ -864,42 +882,27 @@ GeometryGenerator::MeshData GeometryGenerator::CreateWedge(float width, float he
 				});
 		};
 
-	// Bottom
+	// BOTTOM (rectangle)
 	addQuad(p0, p1, p2, p3);
 
-	// Back face
-	addQuad(p3, p2, p7, p5);
-
-	// Front face
-	addQuad(p0, p4, p6, p1);
-
-	// Left face (vertical)
+	// LEFT FACE (rectangle)
 	addQuad(p0, p3, p5, p4);
 
-	// Right face (collapsed height, still a quad but degenerate top = bottom)
-	// This will be a degenerate quad; better to make it a triangle:
-	{
-		XMFLOAT3 n = faceNormal(p1, p6, p7);
-		XMFLOAT3 t(1, 0, 0);
+	// SLOPED TOP (rectangle)  <-- this is the important slanted face
+	addQuad(p4, p5, p2, p1);
 
-		uint32 start = (uint32)meshData.Vertices.size();
-		meshData.Vertices.emplace_back(p1, n, t, XMFLOAT2(0, 1));
-		meshData.Vertices.emplace_back(p6, n, t, XMFLOAT2(1, 1));
-		meshData.Vertices.emplace_back(p7, n, t, XMFLOAT2(1, 0));
-		meshData.Vertices.emplace_back(p2, n, t, XMFLOAT2(0, 0));
+	// FRONT FACE (triangle)
+	addTri(p0, p4, p1);
 
-		// This face is essentially the rectangle p1-p2 with no height; keep as quad for consistency
-		meshData.Indices32.insert(meshData.Indices32.end(), {
-			start + 0, start + 1, start + 2,
-			start + 0, start + 2, start + 3
-			});
-	}
+	// BACK FACE (triangle)
+	addTri(p3, p2, p5);
 
-	// Top (slanted)
-	addQuad(p4, p5, p7, p6);
+	// RIGHT FACE: actually it's a rectangle at y = -h2, but it's already part of bottom + sloped top.
+	// You don't need a separate "right wall" face because wedge collapses there (no vertical area).
 
 	return meshData;
 }
+
 GeometryGenerator::MeshData GeometryGenerator::CreateDiamond(float radius)
 {
 	MeshData meshData;
@@ -913,6 +916,8 @@ GeometryGenerator::MeshData GeometryGenerator::CreateDiamond(float radius)
 	XMFLOAT3 d(0, 0, -radius);
 
 	// We can share vertices; normals are not used in your current shader.
+	// We reuse the same vertices for multiple faces to reduce memory usage.
+
 	meshData.Vertices.emplace_back(top, XMFLOAT3(0, 1, 0), XMFLOAT3(1, 0, 0), XMFLOAT2(0, 0)); //0
 	meshData.Vertices.emplace_back(bot, XMFLOAT3(0, -1, 0), XMFLOAT3(1, 0, 0), XMFLOAT2(0, 1)); //1
 	meshData.Vertices.emplace_back(a, XMFLOAT3(1, 0, 0), XMFLOAT3(0, 0, 1), XMFLOAT2(1, 0)); //2

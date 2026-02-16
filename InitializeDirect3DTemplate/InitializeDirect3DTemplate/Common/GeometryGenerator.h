@@ -74,78 +74,31 @@ public:
 		std::vector<uint16> mIndices16;
 	};
 
-	///<summary>
-	/// Creates a box centered at the origin with the given dimensions, where each
-    /// face has m rows and n columns of vertices.
-	///</summary>
     MeshData CreateBox(float width, float height, float depth, uint32 numSubdivisions);
 
-	///<summary>
-	/// Creates a sphere centered at the origin with the given radius.  The
-	/// slices and stacks parameters control the degree of tessellation.
-	///</summary>
     MeshData CreateSphere(float radius, uint32 sliceCount, uint32 stackCount);
 
-	///<summary>
-	/// Creates a geosphere centered at the origin with the given radius.  The
-	/// depth controls the level of tessellation.
-	///</summary>
     MeshData CreateGeosphere(float radius, uint32 numSubdivisions);
 
-	///<summary>
-	/// Creates a cylinder parallel to the y-axis, and centered about the origin.  
-	/// The bottom and top radius can vary to form various cone shapes rather than true
-	// cylinders.  The slices and stacks parameters control the degree of tessellation.
-	///</summary>
     MeshData CreateCylinder(float bottomRadius, float topRadius, float height, uint32 sliceCount, uint32 stackCount);
 
-	///<summary>
-	/// Creates an mxn grid in the xz-plane with m rows and n columns, centered
-	/// at the origin with the specified width and depth.
-	///</summary>
     MeshData CreateGrid(float width, float depth, uint32 m, uint32 n);
-	///<summary>
-/// Creates a cone centered at the origin, aligned with the y-axis.
-/// radius = bottom radius, height = total height.
-///</summary>
+	
 	MeshData CreateCone(float radius, float height, uint32 sliceCount, uint32 stackCount);
 
-	///<summary>
-	/// Creates a torus centered at the origin, aligned with the y-axis.
-	/// majorRadius controls ring size, minorRadius is auto (majorRadius*0.3).
-	///</summary>
 	MeshData CreateTorus(float majorRadius, uint32 sliceCount, uint32 stackCount);
 
-	///<summary>
-	/// Creates a pyramid centered at the origin.
-	/// width/depth define base size, height is total height.
-	///</summary>
 	MeshData CreatePyramid(float width, float height, float depth);
 
-	///<summary>
-	/// Creates a wedge centered at the origin.
-	/// Think of a box with a slanted top (a ramp-like block).
-	///</summary>
 	MeshData CreateWedge(float width, float height, float depth);
 
-	///<summary>
-	/// Creates a diamond (octahedron) centered at the origin.
-	/// radius controls overall size.
-	///</summary>
 	MeshData CreateDiamond(float radius);
 
-	///<summary>
-	/// Creates a triangular prism centered at the origin.
-	/// width = base width, height = triangle height, depth = extrusion depth.
-	///</summary>
 	MeshData CreateTriPrism(float width, float height, float depth);
 
-
-	///<summary>
-	/// Creates a quad aligned with the screen.  This is useful for postprocessing and screen effects.
-	///</summary>
     MeshData CreateQuad(float x, float y, float w, float h, float depth);
 	void Subdivide(MeshData& meshData);
+
 private:
 	
     Vertex MidPoint(const Vertex& v0, const Vertex& v1);

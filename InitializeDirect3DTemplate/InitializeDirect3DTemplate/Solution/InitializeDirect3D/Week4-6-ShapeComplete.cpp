@@ -946,7 +946,6 @@ void ShapesApp::BuildRenderItems()
 	const float postWorldR = cylMeshR * scaleXZ; // kule yarıçap
 	const float coneWorldR = postWorldR * 1.5f; // çatı yarıçap
 	const float coneWorldH = wallH * 1.8f; // çatı yükseklik
-
 	XMMATRIX coneS = XMMatrixScaling(coneWorldR, coneWorldH, coneWorldR); // cone scale
 	const float coneY = postWorldH + (coneWorldH * 0.5f); // çatı Y
 
@@ -958,7 +957,6 @@ void ShapesApp::BuildRenderItems()
 	// DIAMONDS 
 	const float diamondS = 0.55f; // boyut
 	const float diamondY = postWorldH + coneWorldH + 0.35f; // yükseklik
-
 	auto AddDiamondOnCone = [&](float x, float z)
 		{
 			AddItem("diamond", XMMatrixScaling(diamondS, diamondS * 1.6f, diamondS) * XMMatrixTranslation(x, diamondY, z)); // süs ekle
@@ -969,61 +967,93 @@ void ShapesApp::BuildRenderItems()
 	AddDiamondOnCone(TLx, frontZ2);
 	AddDiamondOnCone(TRx, frontZ2);
 
-	// ===== WEDGE (SIMPLE RAMP) =====
 
-// CreateWedge(2,1,2) base ölçülerine göre ölçek çarpanı hesaplayalım
-	const float baseW = 2.0f; // wedge mesh X
-	const float baseH = 1.0f; // wedge mesh Y
-	const float baseD = 2.0f; // wedge mesh Z
-
-	// İstediğin gerçek boyutlar (kısa)
-	const float wedgeLen = 3.0f;  // X uzunluk
-	const float wedgeH = 1.0f;  // Y yükseklik
-	const float wedgeThick = 1.2f;  // Z kalınlık
-
-	// Ölçek (boyut/mesh)
-	XMMATRIX S = XMMatrixScaling(wedgeLen / baseW, wedgeH / baseH, wedgeThick / baseD);
-
-	// 45 derece
-	const float a = 0.25f * XM_PI; // 45°
-
-	// Konum: kalenin önü + zemine otursun
-	const float wx = 0.0f;          // ortada
-	const float wz = zFront + 1.0f; // ön tarafta
-	const float wy = wedgeH * 0.5f; // zemine oturur (Y=0 üstünde)
-
-	// WEDGE ekle
-	AddItem("wedge", S* XMMatrixRotationZ(-a)* XMMatrixTranslation(wx, wy, wz));
-
-	//  FOUNTAIN 
+	//FOUNTAIN 
+	// 2 torus bowls + middle cylinder + bottom cylinder + (NEW) sphere inside bottom torus
 	{
-		const float fountainX = 0.0f; // merkez X
-		const float fountainZ = zBack - 3.5f; // arka konum
+		// place fountain center behind the back wall
+		const float fountainX = 0.0f;
+		const float fountainZ = zBack - 3.5f;
+		// Torus (bowl) settings
+		const float bowl1Major = 2.4f;   // bottom bowl (bigger)
+		const float bowl2Major = 1.6f;   // top bowl (smaller)
+		const float bowlYScale = 0.45f;  // flatten in Y (looks like a dish)
+		// Bottom pedestal cylinder
+		const float baseCylH = 1.6f;
+		const float baseCylR = 1.1f;
+		AddItem("cylinder",XMMatrixScaling(baseCylR, baseCylH / cylMeshH, baseCylR) *XMMatrixTranslation(fountainX, (baseCylH * 0.5f), fountainZ));
+		// Middle column cylinder (between bowls)
+		const float colH = 2.2f;
+		const float colR = 0.55f;
+		AddItem("cylinder",XMMatrixScaling(colR, colH / cylMeshH, colR) *XMMatrixTranslation(fountainX, baseCylH + (colH * 0.5f), fountainZ));
 
-		const float bowl1Major = 2.4f; // alt çap
-		const float bowl2Major = 1.6f; // üst çap
-		const float bowlYScale = 0.45f; // Y scale
+		// Bottom bowl (torus)
+		const float bowl1Y = baseCylH + colH + 0.55f;
+		AddItem("torus",XMMatrixScaling(bowl1Major, bowlYScale, bowl1Major) *XMMatrixTranslation(fountainX, bowl1Y, fountainZ));
 
-		const float baseCylH = 1.6f; // taban yükseklik
-		const float baseCylR = 1.1f; // taban yarıçap
-		AddItem("cylinder", XMMatrixScaling(baseCylR, baseCylH / cylMeshH, baseCylR) * XMMatrixTranslation(fountainX, (baseCylH * 0.5f), fountainZ)); // alt silindir
+		const float torusMinor = bowl1Major * 0.30f;
+		const float sphereR = torusMinor * 0.85f;   // fits inside the hole nicely
+		AddItem("sphere",XMMatrixScaling(sphereR, sphereR, sphereR) *XMMatrixTranslation(fountainX, bowl1Y, fountainZ));
 
-		const float colH = 2.2f; // orta yükseklik
-		const float colR = 0.55f; // orta yarıçap
-		AddItem("cylinder", XMMatrixScaling(colR, colH / cylMeshH, colR) * XMMatrixTranslation(fountainX, baseCylH + (colH * 0.5f), fountainZ)); // orta silindir
+		// Small top column
+		const float topColH = 1.2f;
+		const float topColR = 0.35f;
+		AddItem("cylinder",XMMatrixScaling(topColR, topColH / cylMeshH, topColR) *XMMatrixTranslation(fountainX, bowl1Y + 0.65f + (topColH * 0.5f), fountainZ));
 
-		const float bowl1Y = baseCylH + colH + 0.55f; // alt kase Y
-		AddItem("torus", XMMatrixScaling(bowl1Major, bowlYScale, bowl1Major) * XMMatrixTranslation(fountainX, bowl1Y, fountainZ)); // alt kase
+		// Top bowl (torus)
+		const float bowl2Y = bowl1Y + 1.55f;
+		AddItem("torus",XMMatrixScaling(bowl2Major, bowlYScale, bowl2Major) *XMMatrixTranslation(fountainX, bowl2Y, fountainZ));
 
-		const float topColH = 1.2f; // üst kolon yükseklik
-		const float topColR = 0.35f; // üst kolon yarıçap
-		AddItem("cylinder", XMMatrixScaling(topColR, topColH / cylMeshH, topColR) * XMMatrixTranslation(fountainX, bowl1Y + 0.65f + (topColH * 0.5f), fountainZ)); // üst kolon
+		// torus - üstteki silindirin üstüne
+		const float ring3Major = 1.0f;                  // küçük ve tatlı
+		const float ring3Y = bowl2Y + 0.85f;            // biraz yukarı
+		AddItem("torus",XMMatrixScaling(ring3Major, bowlYScale, ring3Major)*XMMatrixTranslation(fountainX, ring3Y, fountainZ));
 
-		const float bowl2Y = bowl1Y + 1.55f; // üst kase Y
-		AddItem("torus", XMMatrixScaling(bowl2Major, bowlYScale, bowl2Major) * XMMatrixTranslation(fountainX, bowl2Y, fountainZ)); // üst kase
 	}
-
 	
+// TENT (TRI PRISM)  
+// TriPrism mesh'in BuildShapeGeometry'deki orijinal boyutlari:
+	const float triMeshW = 1.5f;
+	const float triMeshH = 1.5f;
+	const float triMeshD = 2.0f;
+	// Cadirin dunyadaki (world) hedef boyutlari (istersen degistir):
+	const float tentW = 3.0f;   // genislik (X)
+	const float tentH = 2.0f;   // yukseklik (Y)
+	const float tentD = 4.0f;   // uzunluk (Z)
+	// Scale factor (mesh -> world)
+	const float sX = tentW / triMeshW;
+	const float sY = tentH / triMeshH;
+	const float sZ = tentD / triMeshD;
+	// Kalenin onune yerlestirme
+	const float tentX = 0.0f;               // kapinin ortasi
+	const float tentZ = zFront + 5.0f;      // kalenin onune 
+	const float tentY = tentH * 0.5f;       // zemine otursun 
+
+	// Tek parca A-frame cadir
+	AddItem("triPrism",XMMatrixScaling(sX, sY, sZ)*XMMatrixTranslation(tentX, tentY, tentZ));
+
+
+
+// PYRAMIDS 
+// grid boyutların (CreateGrid'deki width/depth ile aynı olmalı)
+	const float groundW = 20.0f;
+	const float groundD = 30.0f;
+	float halfW = groundW * 0.5f;
+	float halfD = groundD * 0.5f;
+	// pyramid scale
+	float h = 2.0f;
+	float s = 1.5f;
+	XMMATRIX S = XMMatrixScaling(s, h, s);
+	// zemine oturtma (pyramid tabanı y=0 olsun)
+	float y = h * 1.1f;
+	//taşmayı engeller)
+	float inset = 0.5f * s;
+	// 4 corners 
+	AddItem("pyramid", S* XMMatrixTranslation(-(halfW - inset), y, -(halfD - inset)));
+	AddItem("pyramid", S* XMMatrixTranslation(+(halfW - inset), y, -(halfD - inset)));
+	AddItem("pyramid", S* XMMatrixTranslation(-(halfW - inset), y, +(halfD - inset)));
+	AddItem("pyramid", S* XMMatrixTranslation(+(halfW - inset), y, +(halfD - inset)));
+
 
 	// MINI TOWERS
 	const float innerEndZ = innerCenterZ - (innerDepth * 0.5f); // arka uç
@@ -1034,7 +1064,6 @@ void ShapesApp::BuildRenderItems()
 	XMMATRIX miniPostS = XMMatrixScaling(miniScaleXZ, miniScaleY, miniScaleXZ); // scale matrix
 
 	const float miniPostY = (cylMeshH * miniScaleY) * 0.5f; // Y konum
-
 	const float miniPostWorldR = cylMeshR * miniScaleXZ; // yarıçap
 	const float miniConeWorldR = miniPostWorldR * 1.5f; // cone yarıçap
 	const float miniConeWorldH = miniPostWorldH * 0.9f; // cone boy
@@ -1044,12 +1073,11 @@ void ShapesApp::BuildRenderItems()
 
 	AddItem("cylinder", miniPostS * XMMatrixTranslation(innerLeftX, miniPostY, innerEndZ)); // mini kule sol
 	AddItem("cone", miniConeS * XMMatrixTranslation(innerLeftX, miniConeY, innerEndZ)); // mini çatı
-
 	AddItem("cylinder", miniPostS * XMMatrixTranslation(innerRightX, miniPostY, innerEndZ)); // mini kule sağ
 	AddItem("cone", miniConeS * XMMatrixTranslation(innerRightX, miniConeY, innerEndZ)); // mini çatı
 
 	for (auto& e : mAllRitems)
-		mOpaqueRitems.push_back(e.get()); // çizim listesi
+		mOpaqueRitems.push_back(e.get()); 
 }
 
 
