@@ -860,10 +860,8 @@ void ShapesApp::BuildRenderItems()
 			mAllRitems.push_back(std::move(r));
 		};
 
-	// =====================================================
 	// BASE SETTINGS (Castle centered on green)
-	// =====================================================
-	const float castleZ = 0.0f;   // <-- yeşil alana ortalamak için 0 yaptık
+	const float castleZ = 0.0f;   
 
 	const float uW = 12.0f; // width X (outer)
 	const float uD = 8.0f;  // depth Z (outer)
@@ -880,11 +878,7 @@ void ShapesApp::BuildRenderItems()
 
 	// Door gap width on the FRONT side
 	const float gateGapW = 4.0f;
-
-	// =====================================================
-	// OUTER WALLS (rectangle around green)
-	// =====================================================
-
+	
 	// Back wall (full along X)
 	AddItem("box",
 		XMMatrixScaling(uW, wallH, wallT) *
@@ -914,9 +908,7 @@ void ShapesApp::BuildRenderItems()
 		XMMatrixScaling(frontSegLen, wallH, wallT) *
 		XMMatrixTranslation(+frontSegCenterOffset, wallY, zFront));
 
-	// =====================================================
-	// INNER WALLS (connect to the front wall segments)
-	// =====================================================
+	// INNER WALLS 
 	const float innerDepth = 4.0f;
 	const float innerCenterZ = zFront - (wallT * 0.5f) - (innerDepth * 0.5f);
 
@@ -931,9 +923,8 @@ void ShapesApp::BuildRenderItems()
 		XMMatrixScaling(wallT, wallH, innerDepth) *
 		XMMatrixTranslation(innerRightX, wallY, innerCenterZ));
 
-	// =====================================================
-	// WALL TEETH (dolu-bos)
-	// =====================================================
+	// WALL TEETH 
+	
 	const float toothW = 1.0f;
 	const float toothH = 0.6f;
 	const float toothTopY = wallH + toothH * 0.5f;
@@ -972,16 +963,14 @@ void ShapesApp::BuildRenderItems()
 	AddTeethAlongX(zFront, xLeft, -gateGapW * 0.5f);
 	AddTeethAlongX(zFront, +gateGapW * 0.5f, xRight);
 
-	// =====================================================
+	
 	// CORNER TOWERS (CYLINDER + CONE) at 4 corners
-	// =====================================================
 	const float cylMeshH = 3.0f;
 	const float cylMeshR = 0.5f;
 
 	const float postWorldH = wallH + 0.6f;
 	const float scaleY = postWorldH / cylMeshH;
 
-	// silindiri incelt
 	const float scaleXZ = 1.15f;
 
 	XMMATRIX postS = XMMatrixScaling(scaleXZ, scaleY, scaleXZ);
@@ -1027,20 +1016,20 @@ void ShapesApp::BuildRenderItems()
 	AddDiamondOnCone(TLx, frontZ2);
 	AddDiamondOnCone(TRx, frontZ2);
 
-	// =====================================================
-	// FOUNTAIN (bird bath) - attach BEHIND the castle
-	// (2 torus bowls + middle cylinder + bottom cylinder)
-	// =====================================================
+	
+	// FOUNTAIN 
+	// 2 torus bowls + middle cylinder + bottom cylinder
+
 	{
 		// place fountain center behind the back wall
 		const float fountainX = 0.0f;
-		const float fountainZ = zBack - 3.5f;     // <-- "kaleye takılı" arkaya itiyoruz
+		const float fountainZ = zBack - 3.5f;     
 
-		// Torus mesh: major=1.0 (CreateTorus(1.0f,...))
-		// We'll scale major radius by S, and also keep it "bowl-like" by scaling Y a bit.
-		const float bowl1Major = 2.4f;   // bottom bowl wider
-		const float bowl2Major = 1.6f;   // top bowl smaller
-		const float bowlYScale = 0.45f;  // squish to feel like basin
+		// Torus mesh
+		
+		const float bowl1Major = 2.4f;   
+		const float bowl2Major = 1.6f;  
+		const float bowlYScale = 0.45f;  
 
 		// Bottom pedestal cylinder
 		const float baseCylH = 1.6f;
@@ -1075,26 +1064,16 @@ void ShapesApp::BuildRenderItems()
 			XMMatrixScaling(bowl2Major, bowlYScale, bowl2Major) *
 			XMMatrixTranslation(fountainX, bowl2Y, fountainZ));
 	}
-	// =====================================================
-// 2 WEDGES (mor) - duvarlara yaslanan rampalar
-// - uzunluk: dayandigi duvar ile paralel
-// - biri sol-front segment duvarina, biri sag-front segment duvarina
-// =====================================================
 
-// Wedge mesh: CreateWedge(2.0f, 1.0f, 2.0f) (senin BuildShapeGeometry’de)
-// Burada sadece SCALE + ROT ile rampaya benzetiyoruz.
-	const float wedgeH = 1.1f;           // rampa yuksekligi
-	const float wedgeThick = 1.6f;       // rampa genisligi (Z ya da X’e gore)
-	const float wedgeLen = frontSegLen;  // dayandigi duvar parcasinin uzunlugu kadar
+// 2 WEDGES
+	const float wedgeH = 1.1f;          
+	const float wedgeThick = 1.6f;       
+	const float wedgeLen = frontSegLen;  
 
-	// Wedge’i “duvara dogru yukselen” hale getirmek icin hafif donduruyoruz.
-	// Eger ters durursa XMMatrixRotationZ(+/-) isaretini degistir.
-	XMMATRIX wedgeTilt = XMMatrixRotationZ(+0.25f * XM_PI); // ~45 dereceye yakin (istege gore)
+	
+	XMMATRIX wedgeTilt = XMMatrixRotationZ(+0.25f * XM_PI); 
 
-	// Sol wedge: front-left segment'e yaslansin
 	{
-		// Front-left segment’in merkezi: (-frontSegCenterOffset, zFront)
-		// Wedge'i biraz iceri aliyoruz ki duvarla temas etsin.
 		float wx = -frontSegCenterOffset;
 		float wz = zFront - (wallT * 0.6f);  // duvarin icine/ustune yaslanma hissi
 		float wy = wedgeH * 0.5f;            // zemine otursun
@@ -1117,15 +1096,12 @@ void ShapesApp::BuildRenderItems()
 		AddItem("wedge", S * wedgeTiltR * XMMatrixTranslation(wx, wy, wz));
 	}
 
-	// =====================================================
-	// MINI TOWERS (cylinder + cone) - inner walls uclarina
-	// Inner wall'lar: innerLeftX ve innerRightX'te, Z boyunca innerDepth
-	// Uc (arkaya bakan): centerZ - innerDepth/2
-	// =====================================================
-
+	
+	// MINI TOWERS (cylinder + cone) 
+	
 	const float innerEndZ = innerCenterZ - (innerDepth * 0.5f); // inner duvarin arka ucu
 
-	// mini cylinder ayarlari (kose kulelerin minik versiyonu)
+	// mini cylinder 
 	const float miniPostWorldH = wallH * 0.75f;
 	const float miniScaleY = miniPostWorldH / cylMeshH;
 	const float miniScaleXZ = scaleXZ * 0.65f;     // inceltilmis mini
@@ -1136,7 +1112,7 @@ void ShapesApp::BuildRenderItems()
 	// mini cone
 	const float miniPostWorldR = cylMeshR * miniScaleXZ;
 	const float miniConeWorldR = miniPostWorldR * 1.5f;
-	const float miniConeWorldH = miniPostWorldH * 0.9f; // daha kisa
+	const float miniConeWorldH = miniPostWorldH * 0.9f; 
 
 	XMMATRIX miniConeS = XMMatrixScaling(miniConeWorldR, miniConeWorldH, miniConeWorldR);
 	const float miniConeY = miniPostWorldH + (miniConeWorldH * 0.5f);
@@ -1154,17 +1130,6 @@ void ShapesApp::BuildRenderItems()
 	for (auto& e : mAllRitems)
 		mOpaqueRitems.push_back(e.get());
 }
-
-
-
-
-
-
-
-
-
-
-
 
 
 
