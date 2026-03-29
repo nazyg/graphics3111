@@ -1,55 +1,51 @@
-
-//step13:our per object constant buffer only stores constants that are associated with an object.
-//Our passing buffer stores constant data that is fixed over a given
-//rendering pass such as the eye position, the view and projection matrices, and information
-//about the screen(render target) dimensions; it also includes game timing information
-
 cbuffer cbPerObject : register(b0)
 {
-	float4x4 gWorld;
+    float4x4 gWorld;
 };
 
 cbuffer cbPass : register(b1)
 {
-	float4x4 gView;
-	float4x4 gInvView;
-	float4x4 gProj;
-	float4x4 gInvProj;
-	float4x4 gViewProj;
-	float4x4 gInvViewProj;
-	float3 gEyePosW;
-	float cbPerObjectPad1;
-	float2 gRenderTargetSize;
-	float2 gInvRenderTargetSize;
-	float gNearZ;
-	float gFarZ;
-	float gTotalTime;
-	float gDeltaTime;
+    float4x4 gView;
+    float4x4 gInvView;
+    float4x4 gProj;
+    float4x4 gInvProj;
+    float4x4 gViewProj;
+    float4x4 gInvViewProj;
+    float3 gEyePosW;
+    float cbPerObjectPad1;
+    float2 gRenderTargetSize;
+    float2 gInvRenderTargetSize;
+    float gNearZ;
+    float gFarZ;
+    float gTotalTime;
+    float gDeltaTime;
+    float4 gAmbientLight;
 };
 
 struct VertexIn
 {
-	float3 PosL  : POSITION;
-	float4 Color : COLOR;
+    float3 PosL : POSITION;
+    float3 NormalL : NORMAL;
+    float2 TexC : TEXCOORD;
 };
 
 struct VertexOut
 {
-	float4 PosH  : SV_POSITION;
-	float4 Color : COLOR;
+    float4 PosH : SV_POSITION;
+    float3 PosW : POSITION;
+    float3 NormalW : NORMAL;
+    float2 TexC : TEXCOORD;
 };
 
 VertexOut VS(VertexIn vin)
 {
-	VertexOut vout;
+    VertexOut vout;
 
-	////step14
-	// Transform to homogeneous clip space.
-	float4 posW = mul(float4(vin.PosL, 1.0f), gWorld);
-	vout.PosH = mul(posW, gViewProj);
+    float4 posW = mul(float4(vin.PosL, 1.0f), gWorld);
+    vout.PosW = posW.xyz;
+    vout.NormalW = mul(vin.NormalL, (float3x3) gWorld);
+    vout.PosH = mul(posW, gViewProj);
+    vout.TexC = vin.TexC;
 
-	// Just pass vertex color into the pixel shader.
-	vout.Color = vin.Color;
-
-	return vout;
+    return vout;
 }
