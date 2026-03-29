@@ -648,52 +648,55 @@ void ShapesApp::BuildShapeGeometry()
 
 void ShapesApp::BuildMaterials()
 {
-    auto stone = std::make_unique<Material>();
-    stone->Name = "stone";
-    stone->MatCBIndex = 0;
-    stone->DiffuseSrvHeapIndex = 0;
-    stone->DiffuseAlbedo = XMFLOAT4(0.78f, 0.78f, 0.72f, 1.0f);
-    stone->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
-    stone->Roughness = 0.30f;
+        auto stone = std::make_unique<Material>();
+        stone->Name = "stone";
+        stone->MatCBIndex = 0;
+        stone->DiffuseSrvHeapIndex = 0;
+        stone->DiffuseAlbedo = XMFLOAT4(1, 1, 1, 1);
+        stone->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
+        stone->Roughness = 0.30f;
 
-    auto grass = std::make_unique<Material>();
-    grass->Name = "grass";
-    grass->MatCBIndex = 1;
-    grass->DiffuseSrvHeapIndex = 0;
-    grass->DiffuseAlbedo = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
-    grass->FresnelR0 = XMFLOAT3(0.01f, 0.01f, 0.01f);
-    grass->Roughness = 0.90f;
+        auto grass = std::make_unique<Material>();
+        grass->Name = "grass";
+        grass->MatCBIndex = 1;
+        grass->DiffuseSrvHeapIndex = 0;
+        grass->DiffuseAlbedo = XMFLOAT4(1, 1, 1, 1);
+        grass->FresnelR0 = XMFLOAT3(0.01f, 0.01f, 0.01f);
+        grass->Roughness = 0.90f;
 
-    auto roof = std::make_unique<Material>();
-    roof->Name = "roof";
-    roof->MatCBIndex = 2;
-    roof->DiffuseSrvHeapIndex = 0;
-    roof->DiffuseAlbedo = XMFLOAT4(0.85f, 0.28f, 0.12f, 1.0f);
-    roof->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
-    roof->Roughness = 0.40f;
+        auto roof = std::make_unique<Material>();
+        roof->Name = "roof";
+        roof->MatCBIndex = 2;
+        roof->DiffuseSrvHeapIndex = 0;
+        roof->DiffuseAlbedo = XMFLOAT4(1, 1, 1, 1);
+        roof->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
+        roof->Roughness = 0.40f;
 
-    auto crystal = std::make_unique<Material>();
-    crystal->Name = "crystal";
-    crystal->MatCBIndex = 3;
-    crystal->DiffuseSrvHeapIndex = 0;
-    crystal->DiffuseAlbedo = XMFLOAT4(0.20f, 0.75f, 1.0f, 1.0f);
-    crystal->FresnelR0 = XMFLOAT3(0.08f, 0.08f, 0.08f);
-    crystal->Roughness = 0.10f;
+        auto crystal = std::make_unique<Material>();
+        crystal->Name = "crystal";
+        crystal->MatCBIndex = 3;
+        crystal->DiffuseSrvHeapIndex = 0;
+        crystal->DiffuseAlbedo = XMFLOAT4(1, 1, 1, 1);
+        crystal->FresnelR0 = XMFLOAT3(0.08f, 0.08f, 0.08f);
+        crystal->Roughness = 0.10f;
 
-    auto accent = std::make_unique<Material>();
-    accent->Name = "accent";
-    accent->MatCBIndex = 4;
-    accent->DiffuseSrvHeapIndex = 0;
-    accent->DiffuseAlbedo = XMFLOAT4(0.82f, 0.68f, 0.25f, 1.0f);
-    accent->FresnelR0 = XMFLOAT3(0.03f, 0.03f, 0.03f);
-    accent->Roughness = 0.45f;
+        auto accent = std::make_unique<Material>();
+        accent->Name = "accent";
+        accent->MatCBIndex = 4;
+        accent->DiffuseSrvHeapIndex = 0;
+        accent->DiffuseAlbedo = XMFLOAT4(1, 1, 1, 1);
+        accent->FresnelR0 = XMFLOAT3(0.03f, 0.03f, 0.03f);
+        accent->Roughness = 0.45f;
 
-    mMaterials["stone"] = std::move(stone);
-    mMaterials["grass"] = std::move(grass);
-    mMaterials["roof"] = std::move(roof);
-    mMaterials["crystal"] = std::move(crystal);
-    mMaterials["accent"] = std::move(accent);
+        mMaterials["stone"] = std::move(stone);
+        mMaterials["grass"] = std::move(grass);
+        mMaterials["roof"] = std::move(roof);
+        mMaterials["crystal"] = std::move(crystal);
+        mMaterials["accent"] = std::move(accent);
+   
+    
 }
+
 void ShapesApp::BuildRenderItems()
 {
     UINT objCBIndex = 0;

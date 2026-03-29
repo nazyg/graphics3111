@@ -37,15 +37,6 @@ struct VertexOut
 
 float4 PS(VertexOut pin) : SV_Target
 {
-    float3 N = normalize(pin.NormalW);
-
-    float3 lightDir = normalize(float3(0.577f, -0.577f, 0.577f));
-    float ndotl = saturate(dot(N, -lightDir));
-
     float4 texColor = gDiffuseMap.Sample(gsamLinear, pin.TexC);
-
-    float3 ambient = gAmbientLight.rgb * texColor.rgb;
-    float3 diffuse = ndotl * texColor.rgb;
-
-    return float4(ambient + diffuse, 1.0f);
+    return texColor;
 }
