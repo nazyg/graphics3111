@@ -37,6 +37,5 @@ struct VertexOut
 
 float4 PS(VertexOut pin) : SV_Target
 {
-    float4 texColor = gDiffuseMap.Sample(gsamLinear, pin.TexC);
-    return texColor;
+    return float4(1, 0, 1, 1);
 }
