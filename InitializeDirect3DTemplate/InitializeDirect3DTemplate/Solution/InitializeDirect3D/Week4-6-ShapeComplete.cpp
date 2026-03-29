@@ -60,6 +60,8 @@ private:
     void BuildRenderItems();
     void BuildFrameResources();
     void BuildPSOs();
+    void BuildTextures();
+    void BuildDescriptorHeaps();
 
     void DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::vector<RenderItem*>& ritems);
 
@@ -69,7 +71,8 @@ private:
     int mCurrFrameResourceIndex = 0;
 
     ComPtr<ID3D12RootSignature> mRootSignature = nullptr;
-
+    ComPtr<ID3D12DescriptorHeap> mSrvDescriptorHeap = nullptr;
+    std::unordered_map<std::string, std::unique_ptr<Texture>> mTextures;
     std::unordered_map<std::string, std::unique_ptr<MeshGeometry>> mGeometries;
     std::unordered_map<std::string, ComPtr<ID3DBlob>> mShaders;
     std::unordered_map<std::string, ComPtr<ID3D12PipelineState>> mPSOs;
@@ -136,8 +139,10 @@ bool ShapesApp::Initialize()
     BuildRootSignature();
     BuildShadersAndInputLayout();
     BuildShapeGeometry();
+    BuildTextures();
     BuildMaterials();
     BuildRenderItems();
+    BuildDescriptorHeaps();
     BuildFrameResources();
     BuildPSOs();
 
@@ -149,7 +154,6 @@ bool ShapesApp::Initialize()
 
     return true;
 }
-
 void ShapesApp::OnResize()
 {
     D3DApp::OnResize();
@@ -213,10 +217,13 @@ void ShapesApp::Draw(const GameTimer& gt)
 
     mCommandList->OMSetRenderTargets(1, &CurrentBackBufferView(), true, &DepthStencilView());
 
+    ID3D12DescriptorHeap* descriptorHeaps[] = { mSrvDescriptorHeap.Get() };
+    mCommandList->SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
+
     mCommandList->SetGraphicsRootSignature(mRootSignature.Get());
 
     ID3D12Resource* passCB = mCurrFrameResource->PassCB->Resource();
-    mCommandList->SetGraphicsRootConstantBufferView(1, passCB->GetGPUVirtualAddress());
+    mCommandList->SetGraphicsRootConstantBufferView(2, passCB->GetGPUVirtualAddress());
 
     DrawRenderItems(mCommandList.Get(), mOpaqueRitems);
 
@@ -370,16 +377,24 @@ void ShapesApp::UpdateMaterialCBs(const GameTimer& gt)
 
 void ShapesApp::BuildRootSignature()
 {
-    CD3DX12_ROOT_PARAMETER slotRootParameter[3];
-    slotRootParameter[0].InitAsConstantBufferView(0);
-    slotRootParameter[1].InitAsConstantBufferView(1);
-    slotRootParameter[2].InitAsConstantBufferView(2);
+    CD3DX12_DESCRIPTOR_RANGE texTable;
+    texTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0);
+
+    CD3DX12_ROOT_PARAMETER slotRootParameter[4];
+    slotRootParameter[0].InitAsDescriptorTable(1, &texTable, D3D12_SHADER_VISIBILITY_PIXEL);
+    slotRootParameter[1].InitAsConstantBufferView(0); // ObjectCB
+    slotRootParameter[2].InitAsConstantBufferView(1); // PassCB
+    slotRootParameter[3].InitAsConstantBufferView(2); // MaterialCB
+
+    auto sampler = CD3DX12_STATIC_SAMPLER_DESC(
+        0,
+        D3D12_FILTER_MIN_MAG_MIP_LINEAR);
 
     CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(
-        3,
+        4,
         slotRootParameter,
-        0,
-        nullptr,
+        1,
+        &sampler,
         D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 
     ComPtr<ID3DBlob> serializedRootSig = nullptr;
@@ -405,8 +420,11 @@ void ShapesApp::BuildRootSignature()
 
 void ShapesApp::BuildShadersAndInputLayout()
 {
-    mShaders["standardVS"] = d3dUtil::CompileShader(L"Shaders\\VS.hlsl", nullptr, "VS", "vs_5_1");
-    mShaders["opaquePS"] = d3dUtil::CompileShader(L"Shaders\\PS.hlsl", nullptr, "PS", "ps_5_1");
+    mShaders["standardVS"] = d3dUtil::CompileShader(
+        L"Shaders\\VS.hlsl", nullptr, "VS", "vs_5_1");
+
+    mShaders["opaquePS"] = d3dUtil::CompileShader(
+        L"Shaders\\PS.hlsl", nullptr, "PS", "ps_5_1");
 
     mInputLayout =
     {
@@ -633,6 +651,7 @@ void ShapesApp::BuildMaterials()
     auto stone = std::make_unique<Material>();
     stone->Name = "stone";
     stone->MatCBIndex = 0;
+    stone->DiffuseSrvHeapIndex = 0;
     stone->DiffuseAlbedo = XMFLOAT4(0.78f, 0.78f, 0.72f, 1.0f);
     stone->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
     stone->Roughness = 0.30f;
@@ -640,13 +659,15 @@ void ShapesApp::BuildMaterials()
     auto grass = std::make_unique<Material>();
     grass->Name = "grass";
     grass->MatCBIndex = 1;
-    grass->DiffuseAlbedo = XMFLOAT4(0.20f, 0.55f, 0.20f, 1.0f);
+    grass->DiffuseSrvHeapIndex = 0;
+    grass->DiffuseAlbedo = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
     grass->FresnelR0 = XMFLOAT3(0.01f, 0.01f, 0.01f);
     grass->Roughness = 0.90f;
 
     auto roof = std::make_unique<Material>();
     roof->Name = "roof";
     roof->MatCBIndex = 2;
+    roof->DiffuseSrvHeapIndex = 0;
     roof->DiffuseAlbedo = XMFLOAT4(0.85f, 0.28f, 0.12f, 1.0f);
     roof->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
     roof->Roughness = 0.40f;
@@ -654,6 +675,7 @@ void ShapesApp::BuildMaterials()
     auto crystal = std::make_unique<Material>();
     crystal->Name = "crystal";
     crystal->MatCBIndex = 3;
+    crystal->DiffuseSrvHeapIndex = 0;
     crystal->DiffuseAlbedo = XMFLOAT4(0.20f, 0.75f, 1.0f, 1.0f);
     crystal->FresnelR0 = XMFLOAT3(0.08f, 0.08f, 0.08f);
     crystal->Roughness = 0.10f;
@@ -661,6 +683,7 @@ void ShapesApp::BuildMaterials()
     auto accent = std::make_unique<Material>();
     accent->Name = "accent";
     accent->MatCBIndex = 4;
+    accent->DiffuseSrvHeapIndex = 0;
     accent->DiffuseAlbedo = XMFLOAT4(0.82f, 0.68f, 0.25f, 1.0f);
     accent->FresnelR0 = XMFLOAT3(0.03f, 0.03f, 0.03f);
     accent->Roughness = 0.45f;
@@ -671,7 +694,6 @@ void ShapesApp::BuildMaterials()
     mMaterials["crystal"] = std::move(crystal);
     mMaterials["accent"] = std::move(accent);
 }
-
 void ShapesApp::BuildRenderItems()
 {
     UINT objCBIndex = 0;
@@ -996,14 +1018,19 @@ void ShapesApp::DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::v
         cmdList->IASetIndexBuffer(&ri->Geo->IndexBufferView());
         cmdList->IASetPrimitiveTopology(ri->PrimitiveType);
 
+        CD3DX12_GPU_DESCRIPTOR_HANDLE texHandle(
+            mSrvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
+        texHandle.Offset(ri->Mat->DiffuseSrvHeapIndex, mCbvSrvUavDescriptorSize);
+
         D3D12_GPU_VIRTUAL_ADDRESS objCBAddress =
             objectCB->GetGPUVirtualAddress() + ri->ObjCBIndex * objCBByteSize;
 
         D3D12_GPU_VIRTUAL_ADDRESS matCBAddress =
             matCB->GetGPUVirtualAddress() + ri->Mat->MatCBIndex * matCBByteSize;
 
-        cmdList->SetGraphicsRootConstantBufferView(0, objCBAddress);
-        cmdList->SetGraphicsRootConstantBufferView(2, matCBAddress);
+        cmdList->SetGraphicsRootDescriptorTable(0, texHandle);
+        cmdList->SetGraphicsRootConstantBufferView(1, objCBAddress);
+        cmdList->SetGraphicsRootConstantBufferView(3, matCBAddress);
 
         cmdList->DrawIndexedInstanced(
             ri->IndexCount,
@@ -1012,4 +1039,46 @@ void ShapesApp::DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::v
             ri->BaseVertexLocation,
             0);
     }
+}
+void ShapesApp::BuildTextures()
+{
+    auto tex = std::make_unique<Texture>();
+    tex->Name = "grassTex";
+    tex->Filename = L"Textures\\grass.dds";
+
+    ThrowIfFailed(DirectX::CreateDDSTextureFromFile12(
+        md3dDevice.Get(),
+        mCommandList.Get(),
+        tex->Filename.c_str(),
+        tex->Resource,
+        tex->UploadHeap));
+
+    mTextures["grassTex"] = std::move(tex);
+}
+void ShapesApp::BuildDescriptorHeaps()
+{
+    D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc = {};
+    srvHeapDesc.NumDescriptors = 1;
+    srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+    srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+    srvHeapDesc.NodeMask = 0;
+
+    ThrowIfFailed(md3dDevice->CreateDescriptorHeap(
+        &srvHeapDesc,
+        IID_PPV_ARGS(&mSrvDescriptorHeap)));
+
+    CD3DX12_CPU_DESCRIPTOR_HANDLE hDescriptor(
+        mSrvDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
+
+    auto tex = mTextures["grassTex"].get();
+
+    D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+    srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+    srvDesc.Format = tex->Resource->GetDesc().Format;
+    srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+    srvDesc.Texture2D.MostDetailedMip = 0;
+    srvDesc.Texture2D.MipLevels = tex->Resource->GetDesc().MipLevels;
+    srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
+
+    md3dDevice->CreateShaderResourceView(tex->Resource.Get(), &srvDesc, hDescriptor);
 }

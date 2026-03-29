@@ -1,3 +1,6 @@
+Texture2D gDiffuseMap : register(t0);
+SamplerState gsamLinear : register(s0);
+
 cbuffer cbPass : register(b1)
 {
     float4x4 gView;
@@ -35,11 +38,14 @@ struct VertexOut
 float4 PS(VertexOut pin) : SV_Target
 {
     float3 N = normalize(pin.NormalW);
+
     float3 lightDir = normalize(float3(0.577f, -0.577f, 0.577f));
     float ndotl = saturate(dot(N, -lightDir));
 
-    float3 ambient = gAmbientLight.rgb * gDiffuseAlbedo.rgb;
-    float3 diffuse = ndotl * gDiffuseAlbedo.rgb;
+    float4 texColor = gDiffuseMap.Sample(gsamLinear, pin.TexC);
 
-    return float4(ambient + diffuse, gDiffuseAlbedo.a);
+    float3 ambient = gAmbientLight.rgb * texColor.rgb;
+    float3 diffuse = ndotl * texColor.rgb;
+
+    return float4(ambient + diffuse, 1.0f);
 }
