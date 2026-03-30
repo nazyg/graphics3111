@@ -82,8 +82,8 @@ private:
     std::vector<std::unique_ptr<RenderItem>> mAllRitems;
     std::vector<RenderItem*> mOpaqueRitems;
     std::vector<RenderItem*> mTransparentRitems;
-    std::vector<std::unique_ptr<RenderItem>> mAllRitems;
     PassConstants mMainPassCB;
+
 
     bool mIsWireframe = false;
 
