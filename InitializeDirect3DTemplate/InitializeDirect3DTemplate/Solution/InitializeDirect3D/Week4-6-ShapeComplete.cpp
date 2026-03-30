@@ -81,7 +81,8 @@ private:
     std::vector<D3D12_INPUT_ELEMENT_DESC> mInputLayout;
     std::vector<std::unique_ptr<RenderItem>> mAllRitems;
     std::vector<RenderItem*> mOpaqueRitems;
-
+    std::vector<RenderItem*> mTransparentRitems;
+    std::vector<std::unique_ptr<RenderItem>> mAllRitems;
     PassConstants mMainPassCB;
 
     bool mIsWireframe = false;
@@ -227,6 +228,9 @@ void ShapesApp::Draw(const GameTimer& gt)
 
     DrawRenderItems(mCommandList.Get(), mOpaqueRitems);
 
+    mCommandList->SetPipelineState(mPSOs["transparent"].Get());
+    DrawRenderItems(mCommandList.Get(), mTransparentRitems);
+
     mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
         CurrentBackBuffer(),
         D3D12_RESOURCE_STATE_RENDER_TARGET,
@@ -242,6 +246,10 @@ void ShapesApp::Draw(const GameTimer& gt)
 
     mCurrFrameResource->Fence = ++mCurrentFence;
     mCommandQueue->Signal(mFence.Get(), mCurrentFence);
+
+    DrawRenderItems(mCommandList.Get(), mOpaqueRitems);
+    mCommandList->SetPipelineState(mPSOs["transparent"].Get());
+    DrawRenderItems(mCommandList.Get(), mTransparentRitems);
 }
 
 void ShapesApp::OnMouseDown(WPARAM btnState, int x, int y)
@@ -346,14 +354,45 @@ void ShapesApp::UpdateMainPassCB(const GameTimer& gt)
     mMainPassCB.FarZ = 1000.0f;
     mMainPassCB.TotalTime = gt.TotalTime();
     mMainPassCB.DeltaTime = gt.DeltaTime();
-    mMainPassCB.AmbientLight = XMFLOAT4(0.15f, 0.15f, 0.18f, 1.0f);
-    mMainPassCB.Lights[0].Direction = { 0.577f, -0.577f, 0.577f };
-    mMainPassCB.Lights[0].Strength = { 0.8f, 0.8f, 0.8f };
 
+    mMainPassCB.AmbientLight = XMFLOAT4(0.12f, 0.12f, 0.16f, 1.0f);
+
+    // Main directional light
+    mMainPassCB.Lights[0].Direction = { 0.577f, -0.577f, 0.577f };
+    mMainPassCB.Lights[0].Strength = { 0.75f, 0.72f, 0.68f };
+
+    // Red point light
+    mMainPassCB.Lights[1].Position = { -7.0f, 2.2f, -5.0f };
+    mMainPassCB.Lights[1].Strength = { 1.0f, 0.2f, 0.2f };
+    mMainPassCB.Lights[1].FalloffStart = 1.0f;
+    mMainPassCB.Lights[1].FalloffEnd = 10.0f;
+
+    // Blue point light
+    mMainPassCB.Lights[2].Position = { 7.0f, 2.2f, -5.0f };
+    mMainPassCB.Lights[2].Strength = { 0.2f, 0.4f, 1.0f };
+    mMainPassCB.Lights[2].FalloffStart = 1.0f;
+    mMainPassCB.Lights[2].FalloffEnd = 10.0f;
+
+    // Purple point light
+    mMainPassCB.Lights[3].Position = { -7.0f, 2.2f, 5.0f };
+    mMainPassCB.Lights[3].Strength = { 0.8f, 0.2f, 1.0f };
+    mMainPassCB.Lights[3].FalloffStart = 1.0f;
+    mMainPassCB.Lights[3].FalloffEnd = 10.0f;
+
+    // Cyan point light
+    mMainPassCB.Lights[4].Position = { 7.0f, 2.2f, 5.0f };
+    mMainPassCB.Lights[4].Strength = { 0.2f, 1.0f, 1.0f };
+    mMainPassCB.Lights[4].FalloffStart = 1.0f;
+    mMainPassCB.Lights[4].FalloffEnd = 10.0f;
+
+    // STRONG WHITE LIGHT (torus center highlight)
+    mMainPassCB.Lights[5].Position = { 0.0f, 2.8f, 0.0f }; 
+    mMainPassCB.Lights[5].Strength = { 2.5f, 2.5f, 2.5f }; 
+    mMainPassCB.Lights[5].FalloffStart = 0.5f;
+    mMainPassCB.Lights[5].FalloffEnd = 4.0f;
     auto currPassCB = mCurrFrameResource->PassCB.get();
     currPassCB->CopyData(0, mMainPassCB);
 }
-
 void ShapesApp::UpdateMaterialCBs(const GameTimer& gt)
 {
     auto currMaterialCB = mCurrFrameResource->MaterialCB.get();
@@ -648,55 +687,52 @@ void ShapesApp::BuildShapeGeometry()
 
 void ShapesApp::BuildMaterials()
 {
-        auto stone = std::make_unique<Material>();
-        stone->Name = "stone";
-        stone->MatCBIndex = 0;
-        stone->DiffuseSrvHeapIndex = 0;
-        stone->DiffuseAlbedo = XMFLOAT4(1, 1, 1, 1);
-        stone->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
-        stone->Roughness = 0.30f;
+    auto grass = std::make_unique<Material>();
+    grass->Name = "grass";
+    grass->MatCBIndex = 0;
+    grass->DiffuseSrvHeapIndex = 0;
+    grass->DiffuseAlbedo = XMFLOAT4(1, 1, 1, 1);
+    grass->FresnelR0 = XMFLOAT3(0.01f, 0.01f, 0.01f);
+    grass->Roughness = 0.90f;
 
-        auto grass = std::make_unique<Material>();
-        grass->Name = "grass";
-        grass->MatCBIndex = 1;
-        grass->DiffuseSrvHeapIndex = 0;
-        grass->DiffuseAlbedo = XMFLOAT4(1, 1, 1, 1);
-        grass->FresnelR0 = XMFLOAT3(0.01f, 0.01f, 0.01f);
-        grass->Roughness = 0.90f;
+    auto stone = std::make_unique<Material>();
+    stone->Name = "stone";
+    stone->MatCBIndex = 1;
+    stone->DiffuseSrvHeapIndex = 1;
+    stone->DiffuseAlbedo = XMFLOAT4(1, 1, 1, 1);
+    stone->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
+    stone->Roughness = 0.30f;
 
-        auto roof = std::make_unique<Material>();
-        roof->Name = "roof";
-        roof->MatCBIndex = 2;
-        roof->DiffuseSrvHeapIndex = 0;
-        roof->DiffuseAlbedo = XMFLOAT4(1, 1, 1, 1);
-        roof->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
-        roof->Roughness = 0.40f;
+    auto crystal = std::make_unique<Material>();
+    crystal->Name = "crystal";
+    crystal->MatCBIndex = 2;
+    crystal->DiffuseSrvHeapIndex = 2;
+    crystal->DiffuseAlbedo = XMFLOAT4(0.2f, 0.8f, 1.0f, 1.0f);
+    crystal->FresnelR0 = XMFLOAT3(0.08f, 0.08f, 0.08f);
+    crystal->Roughness = 0.10f;
 
-        auto crystal = std::make_unique<Material>();
-        crystal->Name = "crystal";
-        crystal->MatCBIndex = 3;
-        crystal->DiffuseSrvHeapIndex = 0;
-        crystal->DiffuseAlbedo = XMFLOAT4(1, 1, 1, 1);
-        crystal->FresnelR0 = XMFLOAT3(0.08f, 0.08f, 0.08f);
-        crystal->Roughness = 0.10f;
+    auto water = std::make_unique<Material>();
+    water->Name = "water";
+    water->MatCBIndex = 3;
+    water->DiffuseSrvHeapIndex = 3;
+    water->DiffuseAlbedo = XMFLOAT4(1.0f, 1.0f, 1.0f, 0.45f);
+    water->FresnelR0 = XMFLOAT3(0.05f, 0.05f, 0.05f);
+    water->Roughness = 0.05f;
 
-        auto accent = std::make_unique<Material>();
-        accent->Name = "accent";
-        accent->MatCBIndex = 4;
-        accent->DiffuseSrvHeapIndex = 0;
-        accent->DiffuseAlbedo = XMFLOAT4(1, 1, 1, 1);
-        accent->FresnelR0 = XMFLOAT3(0.03f, 0.03f, 0.03f);
-        accent->Roughness = 0.45f;
+    auto tile = std::make_unique<Material>();
+    tile->Name = "tile";
+    tile->MatCBIndex = 4;
+    tile->DiffuseSrvHeapIndex = 4;
+    tile->DiffuseAlbedo = XMFLOAT4(1, 1, 1, 1);
+    tile->FresnelR0 = XMFLOAT3(0.03f, 0.03f, 0.03f);
+    tile->Roughness = 0.40f;
 
-        mMaterials["stone"] = std::move(stone);
-        mMaterials["grass"] = std::move(grass);
-        mMaterials["roof"] = std::move(roof);
-        mMaterials["crystal"] = std::move(crystal);
-        mMaterials["accent"] = std::move(accent);
-   
-    
+    mMaterials["grass"] = std::move(grass);
+    mMaterials["stone"] = std::move(stone);
+    mMaterials["crystal"] = std::move(crystal);
+    mMaterials["water"] = std::move(water);
+    mMaterials["tile"] = std::move(tile);
 }
-
 void ShapesApp::BuildRenderItems()
 {
     UINT objCBIndex = 0;
@@ -816,10 +852,10 @@ void ShapesApp::BuildRenderItems()
     XMMATRIX coneS = XMMatrixScaling(coneWorldR, coneWorldH, coneWorldR);
     const float coneY = postWorldH + (coneWorldH * 0.5f);
 
-    AddItem("cone", coneS * XMMatrixTranslation(TLx, coneY, backZ2), "roof");
-    AddItem("cone", coneS * XMMatrixTranslation(TRx, coneY, backZ2), "roof");
-    AddItem("cone", coneS * XMMatrixTranslation(TLx, coneY, frontZ2), "roof");
-    AddItem("cone", coneS * XMMatrixTranslation(TRx, coneY, frontZ2), "roof");
+    AddItem("cone", coneS * XMMatrixTranslation(TLx, coneY, backZ2), "stone");
+    AddItem("cone", coneS * XMMatrixTranslation(TRx, coneY, backZ2), "stone");
+    AddItem("cone", coneS * XMMatrixTranslation(TLx, coneY, frontZ2), "stone");
+    AddItem("cone", coneS * XMMatrixTranslation(TRx, coneY, frontZ2), "stone");
 
     const float diamondS = 0.55f;
     const float diamondY = postWorldH + coneWorldH + 0.35f;
@@ -844,29 +880,29 @@ void ShapesApp::BuildRenderItems()
 
         const float baseCylH = 1.6f;
         const float baseCylR = 1.1f;
-        AddItem("cylinder", XMMatrixScaling(baseCylR, baseCylH / cylMeshH, baseCylR) * XMMatrixTranslation(fountainX, (baseCylH * 0.5f), fountainZ), "accent");
+        AddItem("cylinder", XMMatrixScaling(baseCylR, baseCylH / cylMeshH, baseCylR) * XMMatrixTranslation(fountainX, (baseCylH * 0.5f), fountainZ), "tile");
 
         const float colH = 2.2f;
         const float colR = 0.55f;
-        AddItem("cylinder", XMMatrixScaling(colR, colH / cylMeshH, colR) * XMMatrixTranslation(fountainX, baseCylH + (colH * 0.5f), fountainZ), "accent");
+        AddItem("cylinder", XMMatrixScaling(colR, colH / cylMeshH, colR) * XMMatrixTranslation(fountainX, baseCylH + (colH * 0.5f), fountainZ), "tile");
 
         const float bowl1Y = baseCylH + colH + 0.55f;
-        AddItem("torus", XMMatrixScaling(bowl1Major, bowlYScale, bowl1Major) * XMMatrixTranslation(fountainX, bowl1Y, fountainZ), "accent");
+        AddItem("torus", XMMatrixScaling(bowl1Major, bowlYScale, bowl1Major) * XMMatrixTranslation(fountainX, bowl1Y, fountainZ), "crystal");
 
         const float torusMinor = bowl1Major * 0.30f;
         const float sphereR = torusMinor * 0.85f;
-        AddItem("sphere", XMMatrixScaling(sphereR, sphereR, sphereR) * XMMatrixTranslation(fountainX, bowl1Y, fountainZ), "accent");
+        AddItem("sphere", XMMatrixScaling(sphereR, sphereR, sphereR) * XMMatrixTranslation(fountainX, bowl1Y, fountainZ), "tile");
 
         const float topColH = 1.2f;
         const float topColR = 0.35f;
-        AddItem("cylinder", XMMatrixScaling(topColR, topColH / cylMeshH, topColR) * XMMatrixTranslation(fountainX, bowl1Y + 0.65f + (topColH * 0.5f), fountainZ), "accent");
+        AddItem("cylinder", XMMatrixScaling(topColR, topColH / cylMeshH, topColR) * XMMatrixTranslation(fountainX, bowl1Y + 0.65f + (topColH * 0.5f), fountainZ), "tile");
 
         const float bowl2Y = bowl1Y + 1.55f;
-        AddItem("torus", XMMatrixScaling(bowl2Major, bowlYScale, bowl2Major) * XMMatrixTranslation(fountainX, bowl2Y, fountainZ), "accent");
+        AddItem("torus", XMMatrixScaling(bowl2Major, bowlYScale, bowl2Major) * XMMatrixTranslation(fountainX, bowl2Y, fountainZ), "crystal");
 
         const float ring3Major = 1.0f;
         const float ring3Y = bowl2Y + 0.85f;
-        AddItem("torus", XMMatrixScaling(ring3Major, bowlYScale, ring3Major) * XMMatrixTranslation(fountainX, ring3Y, fountainZ), "accent");
+        AddItem("torus", XMMatrixScaling(ring3Major, bowlYScale, ring3Major) * XMMatrixTranslation(fountainX, ring3Y, fountainZ), "crystal");
     }
 
     const float triMeshW = 1.5f;
@@ -885,7 +921,7 @@ void ShapesApp::BuildRenderItems()
     const float tentZ = zFront + 5.0f;
     const float tentY = tentH * 0.5f;
 
-    AddItem("triPrism", XMMatrixScaling(sX, sY, sZ) * XMMatrixTranslation(tentX, tentY, tentZ), "accent");
+    AddItem("triPrism", XMMatrixScaling(sX, sY, sZ) * XMMatrixTranslation(tentX, tentY, tentZ), "tile");
 
     const float groundW = 20.0f;
     const float groundD = 30.0f;
@@ -920,9 +956,9 @@ void ShapesApp::BuildRenderItems()
     const float miniConeY = miniPostWorldH + (miniConeWorldH * 0.5f);
 
     AddItem("cylinder", miniPostS * XMMatrixTranslation(innerLeftX, miniPostY, innerEndZ), "stone");
-    AddItem("cone", miniConeS * XMMatrixTranslation(innerLeftX, miniConeY, innerEndZ), "roof");
+    AddItem("cone", miniConeS * XMMatrixTranslation(innerLeftX, miniConeY, innerEndZ), "stone");
     AddItem("cylinder", miniPostS * XMMatrixTranslation(innerRightX, miniPostY, innerEndZ), "stone");
-    AddItem("cone", miniConeS * XMMatrixTranslation(innerRightX, miniConeY, innerEndZ), "roof");
+    AddItem("cone", miniConeS * XMMatrixTranslation(innerRightX, miniConeY, innerEndZ), "stone");
 
     {
         const float wedgeMeshW = 2.0f;
@@ -945,11 +981,18 @@ void ShapesApp::BuildRenderItems()
             XMMatrixRotationY(XMConvertToRadians(45.0f)) *
             XMMatrixTranslation(wedgeX, wedgeY, wedgeZ);
 
-        AddItem("wedge", W, "accent");
+        AddItem("wedge", W, "stone");
     }
+    AddItem("box",XMMatrixScaling(26.0f, 0.2f, 36.0f)* XMMatrixTranslation(0.0f, -0.15f, 0.0f),"water");
+
 
     for (auto& e : mAllRitems)
-        mOpaqueRitems.push_back(e.get());
+    {
+        if (e->Mat && e->Mat->Name == "water")
+            mTransparentRitems.push_back(e.get());
+        else
+            mOpaqueRitems.push_back(e.get());
+    }
 }
 
 void ShapesApp::BuildFrameResources()
@@ -998,11 +1041,27 @@ void ShapesApp::BuildPSOs()
     opaquePsoDesc.DSVFormat = mDepthStencilFormat;
 
     ThrowIfFailed(md3dDevice->CreateGraphicsPipelineState(&opaquePsoDesc, IID_PPV_ARGS(&mPSOs["opaque"])));
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    D3D12_GRAPHICS_PIPELINE_STATE_DESC transparentPsoDesc = opaquePsoDesc;
 
-    D3D12_GRAPHICS_PIPELINE_STATE_DESC opaqueWireframePsoDesc = opaquePsoDesc;
-    opaqueWireframePsoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_WIREFRAME;
+    D3D12_RENDER_TARGET_BLEND_DESC transparencyBlendDesc;
+    transparencyBlendDesc.BlendEnable = true;
+    transparencyBlendDesc.LogicOpEnable = false;
+    transparencyBlendDesc.SrcBlend = D3D12_BLEND_SRC_ALPHA;
+    transparencyBlendDesc.DestBlend = D3D12_BLEND_INV_SRC_ALPHA;
+    transparencyBlendDesc.BlendOp = D3D12_BLEND_OP_ADD;
+    transparencyBlendDesc.SrcBlendAlpha = D3D12_BLEND_ONE;
+    transparencyBlendDesc.DestBlendAlpha = D3D12_BLEND_ZERO;
+    transparencyBlendDesc.BlendOpAlpha = D3D12_BLEND_OP_ADD;
+    transparencyBlendDesc.LogicOp = D3D12_LOGIC_OP_NOOP;
+    transparencyBlendDesc.RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
 
-    ThrowIfFailed(md3dDevice->CreateGraphicsPipelineState(&opaqueWireframePsoDesc, IID_PPV_ARGS(&mPSOs["opaque_wireframe"])));
+    transparentPsoDesc.BlendState.RenderTarget[0] = transparencyBlendDesc;
+
+    ThrowIfFailed(md3dDevice->CreateGraphicsPipelineState(
+        &transparentPsoDesc,
+        IID_PPV_ARGS(&mPSOs["transparent"])));
+
 }
 
 void ShapesApp::DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::vector<RenderItem*>& ritems)
@@ -1045,43 +1104,103 @@ void ShapesApp::DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::v
 }
 void ShapesApp::BuildTextures()
 {
-    auto tex = std::make_unique<Texture>();
-    tex->Name = "grassTex";
-    tex->Filename = L"Textures\\grass.dds";
+    auto grassTex = std::make_unique<Texture>();
+    grassTex->Name = "grassTex";
+    grassTex->Filename = L"Textures/grass.dds";
+
+    auto brickTex = std::make_unique<Texture>();
+    brickTex->Name = "brickTex";
+    brickTex->Filename = L"Textures/bricks3.dds";
+
+    auto iceTex = std::make_unique<Texture>();
+    iceTex->Name = "iceTex";
+    iceTex->Filename = L"Textures/ice.dds";
+
+    auto waterTex = std::make_unique<Texture>();
+    waterTex->Name = "waterTex";
+    waterTex->Filename = L"Textures/mywatertexture.dds";
+
+    auto tileTex = std::make_unique<Texture>();
+    tileTex->Name = "tileTex";
+    tileTex->Filename = L"Textures/tile.dds";
 
     ThrowIfFailed(DirectX::CreateDDSTextureFromFile12(
-        md3dDevice.Get(),
-        mCommandList.Get(),
-        tex->Filename.c_str(),
-        tex->Resource,
-        tex->UploadHeap));
+        md3dDevice.Get(), mCommandList.Get(),
+        grassTex->Filename.c_str(),
+        grassTex->Resource, grassTex->UploadHeap));
 
-    mTextures["grassTex"] = std::move(tex);
+    ThrowIfFailed(DirectX::CreateDDSTextureFromFile12(
+        md3dDevice.Get(), mCommandList.Get(),
+        brickTex->Filename.c_str(),
+        brickTex->Resource, brickTex->UploadHeap));
+
+    ThrowIfFailed(DirectX::CreateDDSTextureFromFile12(
+        md3dDevice.Get(), mCommandList.Get(),
+        iceTex->Filename.c_str(),
+        iceTex->Resource, iceTex->UploadHeap));
+
+    ThrowIfFailed(DirectX::CreateDDSTextureFromFile12(
+        md3dDevice.Get(), mCommandList.Get(),
+        waterTex->Filename.c_str(),
+        waterTex->Resource, waterTex->UploadHeap));
+
+    ThrowIfFailed(DirectX::CreateDDSTextureFromFile12(
+        md3dDevice.Get(), mCommandList.Get(),
+        tileTex->Filename.c_str(),
+        tileTex->Resource, tileTex->UploadHeap));
+
+    mTextures["grassTex"] = std::move(grassTex);
+    mTextures["brickTex"] = std::move(brickTex);
+    mTextures["iceTex"] = std::move(iceTex);
+    mTextures["waterTex"] = std::move(waterTex);
+    mTextures["tileTex"] = std::move(tileTex);
 }
 void ShapesApp::BuildDescriptorHeaps()
 {
     D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc = {};
-    srvHeapDesc.NumDescriptors = 1;
+    srvHeapDesc.NumDescriptors = 5;
     srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
     srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-    srvHeapDesc.NodeMask = 0;
 
     ThrowIfFailed(md3dDevice->CreateDescriptorHeap(
-        &srvHeapDesc,
-        IID_PPV_ARGS(&mSrvDescriptorHeap)));
+        &srvHeapDesc, IID_PPV_ARGS(&mSrvDescriptorHeap)));
 
     CD3DX12_CPU_DESCRIPTOR_HANDLE hDescriptor(
         mSrvDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
 
-    auto tex = mTextures["grassTex"].get();
+    auto grassTex = mTextures["grassTex"]->Resource;
+    auto brickTex = mTextures["brickTex"]->Resource;
+    auto iceTex = mTextures["iceTex"]->Resource;
+    auto waterTex = mTextures["waterTex"]->Resource;
+    auto tileTex = mTextures["tileTex"]->Resource;
 
     D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
     srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-    srvDesc.Format = tex->Resource->GetDesc().Format;
     srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
     srvDesc.Texture2D.MostDetailedMip = 0;
-    srvDesc.Texture2D.MipLevels = tex->Resource->GetDesc().MipLevels;
     srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
 
-    md3dDevice->CreateShaderResourceView(tex->Resource.Get(), &srvDesc, hDescriptor);
+    srvDesc.Format = grassTex->GetDesc().Format;
+    srvDesc.Texture2D.MipLevels = grassTex->GetDesc().MipLevels;
+    md3dDevice->CreateShaderResourceView(grassTex.Get(), &srvDesc, hDescriptor);
+
+    hDescriptor.Offset(1, mCbvSrvUavDescriptorSize);
+    srvDesc.Format = brickTex->GetDesc().Format;
+    srvDesc.Texture2D.MipLevels = brickTex->GetDesc().MipLevels;
+    md3dDevice->CreateShaderResourceView(brickTex.Get(), &srvDesc, hDescriptor);
+
+    hDescriptor.Offset(1, mCbvSrvUavDescriptorSize);
+    srvDesc.Format = iceTex->GetDesc().Format;
+    srvDesc.Texture2D.MipLevels = iceTex->GetDesc().MipLevels;
+    md3dDevice->CreateShaderResourceView(iceTex.Get(), &srvDesc, hDescriptor);
+
+    hDescriptor.Offset(1, mCbvSrvUavDescriptorSize);
+    srvDesc.Format = waterTex->GetDesc().Format;
+    srvDesc.Texture2D.MipLevels = waterTex->GetDesc().MipLevels;
+    md3dDevice->CreateShaderResourceView(waterTex.Get(), &srvDesc, hDescriptor);
+
+    hDescriptor.Offset(1, mCbvSrvUavDescriptorSize);
+    srvDesc.Format = tileTex->GetDesc().Format;
+    srvDesc.Texture2D.MipLevels = tileTex->GetDesc().MipLevels;
+    md3dDevice->CreateShaderResourceView(tileTex.Get(), &srvDesc, hDescriptor);
 }
