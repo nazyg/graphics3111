@@ -90,10 +90,10 @@ private:
     XMFLOAT3 mEyePos = { 0.0f, 0.0f, 0.0f };
     XMFLOAT4X4 mView = MathHelper::Identity4x4();
     XMFLOAT4X4 mProj = MathHelper::Identity4x4();
-
-    float mTheta = 1.5f * XM_PI;
-    float mPhi = 0.2f * XM_PI;
-    float mRadius = 15.0f;
+    
+    float mRadius = 35.0f;
+    float mPhi = 1.0f;
+    float  mTheta = 1.5f * XM_PI;
 
     POINT mLastMousePos;
 };
