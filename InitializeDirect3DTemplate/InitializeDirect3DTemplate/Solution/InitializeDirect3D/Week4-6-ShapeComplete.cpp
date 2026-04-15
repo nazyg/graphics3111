@@ -90,7 +90,7 @@ private:
     XMFLOAT3 mEyePos = { 0.0f, 0.0f, 0.0f };
     XMFLOAT4X4 mView = MathHelper::Identity4x4();
     XMFLOAT4X4 mProj = MathHelper::Identity4x4();
-    
+
     float mRadius = 35.0f;
     float mPhi = 1.0f;
     float  mTheta = 1.5f * XM_PI;
@@ -386,8 +386,8 @@ void ShapesApp::UpdateMainPassCB(const GameTimer& gt)
     mMainPassCB.Lights[4].FalloffEnd = 10.0f;
 
     // STRONG WHITE LIGHT (torus center highlight)
-    mMainPassCB.Lights[5].Position = { 0.0f, 2.8f, 0.0f }; 
-    mMainPassCB.Lights[5].Strength = { 2.5f, 2.5f, 2.5f }; 
+    mMainPassCB.Lights[5].Position = { 0.0f, 2.8f, 0.0f };
+    mMainPassCB.Lights[5].Strength = { 2.5f, 2.5f, 2.5f };
     mMainPassCB.Lights[5].FalloffStart = 0.5f;
     mMainPassCB.Lights[5].FalloffEnd = 4.0f;
     auto currPassCB = mCurrFrameResource->PassCB.get();
@@ -477,7 +477,7 @@ void ShapesApp::BuildShapeGeometry()
 {
     GeometryGenerator geoGen;
     auto box = geoGen.CreateBox(1.0f, 1.0f, 1.0f, 0);
-    auto grid = geoGen.CreateGrid(20.0f, 30.0f, 60, 40);
+    auto grid = geoGen.CreateGrid(80.0f, 120.0f, 160, 120);
     auto sphere = geoGen.CreateSphere(0.5f, 20, 20);
     auto cylinder = geoGen.CreateCylinder(0.5f, 0.5f, 3.0f, 20, 20);
     auto cone = geoGen.CreateCone(1.0f, 1.0f, 20, 20);
@@ -762,22 +762,25 @@ void ShapesApp::BuildRenderItems()
             mAllRitems.push_back(std::move(r));
         };
 
-    const float castleZ = 0.0f;
-    const float uW = 12.0f;
-    const float uD = 8.0f;
-    const float wallH = 4.0f;
-    const float wallT = 0.25f;
+    const float castleX = 0.0f;
+    const float castleZ = 15.0f;
+    const float castleCenterX = castleX;
+    const float castleCenterZ = castleZ;
+    const float uW = 60.0f;
+    const float uD = 80.0f;
+    const float wallH = 16.0f;
+    const float wallT = 1.2f;
     const float wallY = wallH * 0.5f;
-    const float xLeft = -uW * 0.5f;
-    const float xRight = +uW * 0.5f;
-    const float zBack = castleZ - uD * 0.5f;
-    const float zFront = castleZ + uD * 0.5f;
+    const float xLeft = castleCenterX - uW * 0.5f;
+    const float xRight = castleCenterX + uW * 0.5f;
+    const float zBack = castleCenterZ - uD * 0.5f;
+    const float zFront = castleCenterZ + uD * 0.5f;
 
-    const float gateGapW = 4.0f;
+    const float gateGapW = 16.0f;
 
-    AddItem("box", XMMatrixScaling(uW, wallH, wallT) * XMMatrixTranslation(0.0f, wallY, zBack), "stone");
-    AddItem("box", XMMatrixScaling(wallT, wallH, uD) * XMMatrixTranslation(xLeft, wallY, castleZ), "stone");
-    AddItem("box", XMMatrixScaling(wallT, wallH, uD) * XMMatrixTranslation(xRight, wallY, castleZ), "stone");
+    AddItem("box", XMMatrixScaling(uW, wallH, wallT) * XMMatrixTranslation(castleCenterX, wallY, zBack), "stone");
+    AddItem("box", XMMatrixScaling(wallT, wallH, uD) * XMMatrixTranslation(xLeft, wallY, castleCenterZ), "stone");
+    AddItem("box", XMMatrixScaling(wallT, wallH, uD) * XMMatrixTranslation(xRight, wallY, castleCenterZ), "stone");
 
     const float frontSegLen = (uW - gateGapW) * 0.5f;
     const float frontSegCenterOffset = (gateGapW * 0.5f) + (frontSegLen * 0.5f);
@@ -785,16 +788,16 @@ void ShapesApp::BuildRenderItems()
     AddItem("box", XMMatrixScaling(frontSegLen, wallH, wallT) * XMMatrixTranslation(-frontSegCenterOffset, wallY, zFront), "stone");
     AddItem("box", XMMatrixScaling(frontSegLen, wallH, wallT) * XMMatrixTranslation(+frontSegCenterOffset, wallY, zFront), "stone");
 
-    const float innerDepth = 4.0f;
+    const float innerDepth = 16.0f;
     const float innerCenterZ = zFront - (wallT * 0.5f) - (innerDepth * 0.5f);
-    const float innerLeftX = -gateGapW * 0.5f;
-    const float innerRightX = +gateGapW * 0.5f;
+    const float innerLeftX = castleCenterX - gateGapW * 0.5f;
+    const float innerRightX = castleCenterX + gateGapW * 0.5f;
 
     AddItem("box", XMMatrixScaling(wallT, wallH, innerDepth) * XMMatrixTranslation(innerLeftX, wallY, innerCenterZ), "stone");
     AddItem("box", XMMatrixScaling(wallT, wallH, innerDepth) * XMMatrixTranslation(innerRightX, wallY, innerCenterZ), "stone");
 
-    const float toothW = 1.0f;
-    const float toothH = 0.6f;
+    const float toothW = 3.5f;
+    const float toothH = 2.0f;
     const float toothTopY = wallH + toothH * 0.5f;
 
     auto AddTeethAlongX = [&](float zWall, float xMin, float xMax)
@@ -829,9 +832,9 @@ void ShapesApp::BuildRenderItems()
 
     const float cylMeshH = 3.0f;
     const float cylMeshR = 0.5f;
-    const float postWorldH = wallH + 0.6f;
+    const float postWorldH = wallH + 6.0f;
     const float scaleY = postWorldH / cylMeshH;
-    const float scaleXZ = 1.15f;
+    const float scaleXZ = 3.6f;
     XMMATRIX postS = XMMatrixScaling(scaleXZ, scaleY, scaleXZ);
     const float postY = (cylMeshH * scaleY) * 0.5f;
     const float towerOut = (wallT * 0.5f) + (cylMeshR * scaleXZ);
@@ -847,8 +850,8 @@ void ShapesApp::BuildRenderItems()
     AddItem("cylinder", postS * XMMatrixTranslation(TRx, postY, frontZ2), "stone");
 
     const float postWorldR = cylMeshR * scaleXZ;
-    const float coneWorldR = postWorldR * 1.5f;
-    const float coneWorldH = wallH * 1.8f;
+    const float coneWorldR = postWorldR * 2.0f;
+    const float coneWorldH = wallH * 2.6f;
     XMMATRIX coneS = XMMatrixScaling(coneWorldR, coneWorldH, coneWorldR);
     const float coneY = postWorldH + (coneWorldH * 0.5f);
 
@@ -857,7 +860,7 @@ void ShapesApp::BuildRenderItems()
     AddItem("cone", coneS * XMMatrixTranslation(TLx, coneY, frontZ2), "stone");
     AddItem("cone", coneS * XMMatrixTranslation(TRx, coneY, frontZ2), "stone");
 
-    const float diamondS = 0.55f;
+    const float diamondS = 2.5f;
     const float diamondY = postWorldH + coneWorldH + 0.35f;
 
     auto AddDiamondOnCone = [&](float x, float z)
@@ -871,19 +874,19 @@ void ShapesApp::BuildRenderItems()
     AddDiamondOnCone(TRx, frontZ2);
 
     {
-        const float fountainX = 0.0f;
-        const float fountainZ = zBack - 3.5f;
+        const float fountainX = castleCenterX;
+        const float fountainZ = zBack - 25.0f;
 
-        const float bowl1Major = 2.4f;
-        const float bowl2Major = 1.6f;
-        const float bowlYScale = 0.45f;
+        const float bowl1Major = 8.0f;
+        const float bowl2Major = 5.5f;
+        const float bowlYScale = 1.0f;
 
-        const float baseCylH = 1.6f;
-        const float baseCylR = 1.1f;
+        const float baseCylH = 5.5f;
+        const float baseCylR = 3.5f;
         AddItem("cylinder", XMMatrixScaling(baseCylR, baseCylH / cylMeshH, baseCylR) * XMMatrixTranslation(fountainX, (baseCylH * 0.5f), fountainZ), "tile");
 
-        const float colH = 2.2f;
-        const float colR = 0.55f;
+        const float colH = 7.0f;
+        const float colR = 1.8f;
         AddItem("cylinder", XMMatrixScaling(colR, colH / cylMeshH, colR) * XMMatrixTranslation(fountainX, baseCylH + (colH * 0.5f), fountainZ), "tile");
 
         const float bowl1Y = baseCylH + colH + 0.55f;
@@ -909,22 +912,21 @@ void ShapesApp::BuildRenderItems()
     const float triMeshH = 1.5f;
     const float triMeshD = 2.0f;
 
-    const float tentW = 3.0f;
-    const float tentH = 2.0f;
-    const float tentD = 4.0f;
+    const float tentW = 16.0f;
+    const float tentH = 10.0f;
+    const float tentD = 20.0f;
 
     const float sX = tentW / triMeshW;
     const float sY = tentH / triMeshH;
     const float sZ = tentD / triMeshD;
 
-    const float tentX = 0.0f;
-    const float tentZ = zFront + 5.0f;
+    const float tentX = castleCenterX;
+    const float tentZ = zFront + 10.0f;
     const float tentY = tentH * 0.5f;
 
-    AddItem("triPrism", XMMatrixScaling(sX, sY, sZ) * XMMatrixTranslation(tentX, tentY, tentZ), "tile");
 
-    const float groundW = 20.0f;
-    const float groundD = 30.0f;
+    const float groundW = 80.0f;
+    const float groundD = 120.0f;
     float halfW = groundW * 0.5f;
     float halfD = groundD * 0.5f;
 
@@ -942,15 +944,15 @@ void ShapesApp::BuildRenderItems()
 
     const float innerEndZ = innerCenterZ - (innerDepth * 0.5f);
 
-    const float miniPostWorldH = wallH * 0.75f;
+    const float miniPostWorldH = wallH * 1.0f;
     const float miniScaleY = miniPostWorldH / cylMeshH;
-    const float miniScaleXZ = scaleXZ * 0.65f;
+    const float miniScaleXZ = scaleXZ * 0.8f;
     XMMATRIX miniPostS = XMMatrixScaling(miniScaleXZ, miniScaleY, miniScaleXZ);
 
     const float miniPostY = (cylMeshH * miniScaleY) * 0.5f;
     const float miniPostWorldR = cylMeshR * miniScaleXZ;
     const float miniConeWorldR = miniPostWorldR * 1.5f;
-    const float miniConeWorldH = miniPostWorldH * 0.9f;
+    const float miniConeWorldH = miniPostWorldH * 1.3f;
 
     XMMATRIX miniConeS = XMMatrixScaling(miniConeWorldR, miniConeWorldH, miniConeWorldR);
     const float miniConeY = miniPostWorldH + (miniConeWorldH * 0.5f);
@@ -983,7 +985,7 @@ void ShapesApp::BuildRenderItems()
 
         AddItem("wedge", W, "stone");
     }
-    AddItem("box",XMMatrixScaling(26.0f, 0.2f, 36.0f)* XMMatrixTranslation(0.0f, -0.15f, 0.0f),"water");
+    AddItem("box", XMMatrixScaling(90.0f, 0.2f, 130.0f) * XMMatrixTranslation(0.0f, -0.15f, 0.0f), "water");
 
 
     for (auto& e : mAllRitems)
