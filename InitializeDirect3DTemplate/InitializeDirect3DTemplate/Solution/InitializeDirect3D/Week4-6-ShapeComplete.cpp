@@ -2,6 +2,7 @@
 #include "../../Common/MathHelper.h"
 #include "../../Common/UploadBuffer.h"
 #include "../../Common/GeometryGenerator.h"
+#include "../../Common/Camera.h"
 #include "FrameResource.h"
 
 using Microsoft::WRL::ComPtr;
@@ -48,7 +49,6 @@ private:
     virtual void OnMouseMove(WPARAM btnState, int x, int y) override;
 
     void OnKeyboardInput(const GameTimer& gt);
-    void UpdateCamera(const GameTimer& gt);
     void UpdateObjectCBs(const GameTimer& gt);
     void UpdateMainPassCB(const GameTimer& gt);
     void UpdateMaterialCBs(const GameTimer& gt);
@@ -87,13 +87,12 @@ private:
 
     bool mIsWireframe = false;
 
-    XMFLOAT3 mEyePos = { 0.0f, 0.0f, 0.0f };
-    XMFLOAT4X4 mView = MathHelper::Identity4x4();
+    Camera mCamera;
     XMFLOAT4X4 mProj = MathHelper::Identity4x4();
 
-    float mRadius = 35.0f;
-    float mPhi = 1.0f;
-    float  mTheta = 1.5f * XM_PI;
+    float mStartX = 0.0f;
+    float mStartY = 4.0f;
+    float mStartZ = 0.0f;
 
     POINT mLastMousePos;
 };
@@ -147,6 +146,24 @@ bool ShapesApp::Initialize()
     BuildFrameResources();
     BuildPSOs();
 
+    mStartX = 0.0f;
+
+    float castleCenterZ = 15.0f;
+    float uD = 80.0f;
+    float wallT = 1.2f;
+    float innerDepth = 16.0f;
+
+    float zFront = castleCenterZ + uD * 0.5f;
+    float innerCenterZ = zFront - (wallT * 0.5f) - (innerDepth * 0.5f);
+
+    mStartZ = (zFront + innerCenterZ) * 0.5f;
+    mStartY = 4.0f;
+
+    mCamera.LookAt(
+        XMFLOAT3(mStartX, mStartY, mStartZ),
+        XMFLOAT3(mStartX, mStartY, mStartZ - 1.0f),
+        XMFLOAT3(0.0f, 1.0f, 0.0f));
+
     ThrowIfFailed(mCommandList->Close());
     ID3D12CommandList* cmdsLists[] = { mCommandList.Get() };
     mCommandQueue->ExecuteCommandLists(_countof(cmdsLists), cmdsLists);
@@ -158,15 +175,13 @@ bool ShapesApp::Initialize()
 void ShapesApp::OnResize()
 {
     D3DApp::OnResize();
-
-    XMMATRIX P = XMMatrixPerspectiveFovLH(0.25f * MathHelper::Pi, AspectRatio(), 1.0f, 1000.0f);
-    XMStoreFloat4x4(&mProj, P);
+    mCamera.SetLens(0.25f * MathHelper::Pi, AspectRatio(), 1.0f, 1000.0f);
 }
 
 void ShapesApp::Update(const GameTimer& gt)
 {
     OnKeyboardInput(gt);
-    UpdateCamera(gt);
+    mCamera.UpdateViewMatrix();
 
     mCurrFrameResourceIndex = (mCurrFrameResourceIndex + 1) % gNumFrameResources;
     mCurrFrameResource = mFrameResources[mCurrFrameResourceIndex].get();
@@ -247,9 +262,6 @@ void ShapesApp::Draw(const GameTimer& gt)
     mCurrFrameResource->Fence = ++mCurrentFence;
     mCommandQueue->Signal(mFence.Get(), mCurrentFence);
 
-    DrawRenderItems(mCommandList.Get(), mOpaqueRitems);
-    mCommandList->SetPipelineState(mPSOs["transparent"].Get());
-    DrawRenderItems(mCommandList.Get(), mTransparentRitems);
 }
 
 void ShapesApp::OnMouseDown(WPARAM btnState, int x, int y)
@@ -271,18 +283,8 @@ void ShapesApp::OnMouseMove(WPARAM btnState, int x, int y)
         float dx = XMConvertToRadians(0.25f * static_cast<float>(x - mLastMousePos.x));
         float dy = XMConvertToRadians(0.25f * static_cast<float>(y - mLastMousePos.y));
 
-        mTheta += dx;
-        mPhi += dy;
-
-        mPhi = MathHelper::Clamp(mPhi, 0.1f, MathHelper::Pi - 0.1f);
-    }
-    else if ((btnState & MK_RBUTTON) != 0)
-    {
-        float dx = 0.05f * static_cast<float>(x - mLastMousePos.x);
-        float dy = 0.05f * static_cast<float>(y - mLastMousePos.y);
-
-        mRadius += dx - dy;
-        mRadius = MathHelper::Clamp(mRadius, 5.0f, 150.0f);
+        mCamera.Pitch(dy);
+        mCamera.RotateY(dx);
     }
 
     mLastMousePos.x = x;
@@ -291,25 +293,26 @@ void ShapesApp::OnMouseMove(WPARAM btnState, int x, int y)
 
 void ShapesApp::OnKeyboardInput(const GameTimer& gt)
 {
+    float dt = gt.DeltaTime();
+
     if (GetAsyncKeyState('1') & 0x8000)
         mIsWireframe = true;
     else
         mIsWireframe = false;
+
+    if (GetAsyncKeyState('W') & 0x8000)
+        mCamera.Walk(10.0f * dt);
+
+    if (GetAsyncKeyState('S') & 0x8000)
+        mCamera.Walk(-10.0f * dt);
+
+    if (GetAsyncKeyState('A') & 0x8000)
+        mCamera.Strafe(-10.0f * dt);
+
+    if (GetAsyncKeyState('D') & 0x8000)
+        mCamera.Strafe(10.0f * dt);
 }
 
-void ShapesApp::UpdateCamera(const GameTimer& gt)
-{
-    mEyePos.x = mRadius * sinf(mPhi) * cosf(mTheta);
-    mEyePos.z = mRadius * sinf(mPhi) * sinf(mTheta);
-    mEyePos.y = mRadius * cosf(mPhi);
-
-    XMVECTOR pos = XMVectorSet(mEyePos.x, mEyePos.y, mEyePos.z, 1.0f);
-    XMVECTOR target = XMVectorZero();
-    XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
-
-    XMMATRIX view = XMMatrixLookAtLH(pos, target, up);
-    XMStoreFloat4x4(&mView, view);
-}
 
 void ShapesApp::UpdateObjectCBs(const GameTimer& gt)
 {
@@ -332,8 +335,8 @@ void ShapesApp::UpdateObjectCBs(const GameTimer& gt)
 
 void ShapesApp::UpdateMainPassCB(const GameTimer& gt)
 {
-    XMMATRIX view = XMLoadFloat4x4(&mView);
-    XMMATRIX proj = XMLoadFloat4x4(&mProj);
+    XMMATRIX view = mCamera.GetView();
+    XMMATRIX proj = mCamera.GetProj();
 
     XMMATRIX viewProj = XMMatrixMultiply(view, proj);
     XMMATRIX invView = XMMatrixInverse(&XMMatrixDeterminant(view), view);
@@ -347,7 +350,7 @@ void ShapesApp::UpdateMainPassCB(const GameTimer& gt)
     XMStoreFloat4x4(&mMainPassCB.ViewProj, XMMatrixTranspose(viewProj));
     XMStoreFloat4x4(&mMainPassCB.InvViewProj, XMMatrixTranspose(invViewProj));
 
-    mMainPassCB.EyePosW = mEyePos;
+    mMainPassCB.EyePosW = mCamera.GetPosition3f();
     mMainPassCB.RenderTargetSize = XMFLOAT2((float)mClientWidth, (float)mClientHeight);
     mMainPassCB.InvRenderTargetSize = XMFLOAT2(1.0f / mClientWidth, 1.0f / mClientHeight);
     mMainPassCB.NearZ = 1.0f;
