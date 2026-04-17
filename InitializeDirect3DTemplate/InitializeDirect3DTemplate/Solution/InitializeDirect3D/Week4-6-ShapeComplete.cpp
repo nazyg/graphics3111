@@ -848,13 +848,13 @@ void ShapesApp::BuildMazeGeometry()
 {
     GeometryGenerator geoGen;
 
-    mMazeWallBounds.clear();
+    mMazeWallBounds.clear(); // clear old collision boxes
 
     std::vector<Vertex> allVertices;
     std::vector<std::uint16_t> allIndices;
     UINT vertexOffset = 0;
 
-    // 🔥 SENIN MAZE (image'den uyarlanmış)
+    // 2D maze layout (1 = wall, 0 = empty space)
     const int maze[15][15] =
     {
         {1,1,1,1,1,1,1,1,1,0,1,1,1,1,1},
@@ -877,28 +877,32 @@ void ShapesApp::BuildMazeGeometry()
     const int rows = 15;
     const int cols = 15;
 
-    float cellSize = 3.0f;     // 🟢 maze büyüklüğü
-    float wallHeight = 7.0f;
+    float cellSize = 3.0f;   // size of each cell
+    float wallHeight = 7.0f; // height of walls
     float wallThickness = 1.0f;
 
-    float startX = -25.0f;     // 🟢 KONUM (castle arkasına göre ayarlı)
+    float startX = -25.0f;   // maze position in world
     float startZ = -40.0f;
 
+    // function to add one wall cube
     auto addWall = [&](float x, float z)
         {
             float groundY = -0.5f;
 
+            // collision box for this wall
             DirectX::BoundingBox box;
             box.Center = XMFLOAT3(x, groundY + wallHeight * 0.5f, z);
             box.Extents = XMFLOAT3(cellSize * 0.5f, wallHeight * 0.5f, cellSize * 0.5f);
             mMazeWallBounds.push_back(box);
 
+            // create cube mesh
             auto cube = geoGen.CreateBox(cellSize, wallHeight, cellSize, 0);
 
             for (auto& v : cube.Vertices)
             {
                 Vertex vert;
 
+                // convert local vertex to world position
                 float worldX = v.Position.x + x;
                 float worldY = v.Position.y + groundY + wallHeight * 0.5f;
                 float worldZ = v.Position.z + z;
@@ -906,27 +910,29 @@ void ShapesApp::BuildMazeGeometry()
                 vert.Pos = XMFLOAT3(worldX, worldY, worldZ);
                 vert.Normal = v.Normal;
 
+                // simple texture mapping
                 float texScale = 0.2f;
 
                 if (fabs(v.Normal.y) > 0.9f)
                 {
-                    // top / bottom faces
+                    // top/bottom faces
                     vert.TexC = XMFLOAT2(worldX * texScale, worldZ * texScale);
                 }
                 else if (fabs(v.Normal.x) > 0.9f)
                 {
-                    // left / right faces
+                    // side faces (left/right)
                     vert.TexC = XMFLOAT2(worldZ * texScale, worldY * texScale);
                 }
                 else
                 {
-                    // front / back faces
+                    // front/back faces
                     vert.TexC = XMFLOAT2(worldX * texScale, worldY * texScale);
                 }
 
                 allVertices.push_back(vert);
             }
 
+            // add indices with offset
             for (auto idx : cube.Indices32)
             {
                 allIndices.push_back((std::uint16_t)(vertexOffset + idx));
@@ -935,12 +941,12 @@ void ShapesApp::BuildMazeGeometry()
             vertexOffset += (UINT)cube.Vertices.size();
         };
 
-    // 🔥 GRID LOOP
+    // loop through maze and place walls
     for (int r = 0; r < rows; r++)
     {
         for (int c = 0; c < cols; c++)
         {
-            if (maze[r][c] == 1)
+            if (maze[r][c] == 1) // if wall
             {
                 float x = startX + c * cellSize;
                 float z = startZ + r * cellSize;
@@ -949,6 +955,7 @@ void ShapesApp::BuildMazeGeometry()
         }
     }
 
+    // create GPU buffers
     const UINT vbByteSize = (UINT)allVertices.size() * sizeof(Vertex);
     const UINT ibByteSize = (UINT)allIndices.size() * sizeof(std::uint16_t);
 
@@ -980,6 +987,7 @@ void ShapesApp::BuildMazeGeometry()
     geo->IndexFormat = DXGI_FORMAT_R16_UINT;
     geo->IndexBufferByteSize = ibByteSize;
 
+    // define submesh
     SubmeshGeometry submesh;
     submesh.IndexCount = (UINT)allIndices.size();
     submesh.StartIndexLocation = 0;
