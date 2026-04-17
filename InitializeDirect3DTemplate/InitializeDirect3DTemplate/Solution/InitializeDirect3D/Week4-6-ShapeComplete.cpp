@@ -4,6 +4,7 @@
 #include "../../Common/GeometryGenerator.h"
 #include "../../Common/Camera.h"
 #include "FrameResource.h"
+#include <DirectXCollision.h>
 
 using Microsoft::WRL::ComPtr;
 using namespace DirectX;
@@ -56,6 +57,7 @@ private:
     void BuildRootSignature();
     void BuildShadersAndInputLayout();
     void BuildShapeGeometry();
+    void BuildMazeGeometry();
     void BuildMaterials();
     void BuildRenderItems();
     void BuildFrameResources();
@@ -64,6 +66,7 @@ private:
     void BuildDescriptorHeaps();
 
     void DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::vector<RenderItem*>& ritems);
+    bool CheckCollision(const DirectX::XMFLOAT3& position, float radius);
 
 private:
     std::vector<std::unique_ptr<FrameResource>> mFrameResources;
@@ -93,6 +96,9 @@ private:
     float mStartX = 0.0f;
     float mStartY = 4.0f;
     float mStartZ = 0.0f;
+
+    std::vector<DirectX::BoundingBox> mMazeWallBounds;
+    float mCollisionRadius = 0.8f;
 
     POINT mLastMousePos;
 };
@@ -139,6 +145,7 @@ bool ShapesApp::Initialize()
     BuildRootSignature();
     BuildShadersAndInputLayout();
     BuildShapeGeometry();
+    BuildMazeGeometry();
     BuildTextures();
     BuildMaterials();
     BuildRenderItems();
@@ -159,11 +166,8 @@ bool ShapesApp::Initialize()
     mStartZ = (zFront + innerCenterZ) * 0.5f;
     mStartY = 4.0f;
 
-    mCamera.LookAt(
-        XMFLOAT3(mStartX, mStartY, mStartZ),
-        XMFLOAT3(mStartX, mStartY, mStartZ - 1.0f),
-        XMFLOAT3(0.0f, 1.0f, 0.0f));
-
+   
+    const XMFLOAT3 fountainPos = { 0.0f, 0.0f, 50.0f };
     ThrowIfFailed(mCommandList->Close());
     ID3D12CommandList* cmdsLists[] = { mCommandList.Get() };
     mCommandQueue->ExecuteCommandLists(_countof(cmdsLists), cmdsLists);
@@ -300,19 +304,53 @@ void ShapesApp::OnKeyboardInput(const GameTimer& gt)
     else
         mIsWireframe = false;
 
+    XMFLOAT3 oldPos = mCamera.GetPosition3f();
+
     if (GetAsyncKeyState('W') & 0x8000)
-        mCamera.Walk(10.0f * dt);
+        mCamera.Walk(6.0f * dt);
 
     if (GetAsyncKeyState('S') & 0x8000)
-        mCamera.Walk(-10.0f * dt);
+        mCamera.Walk(-6.0f * dt);
 
     if (GetAsyncKeyState('A') & 0x8000)
-        mCamera.Strafe(-10.0f * dt);
+        mCamera.Strafe(-6.0f * dt);
 
     if (GetAsyncKeyState('D') & 0x8000)
-        mCamera.Strafe(10.0f * dt);
+        mCamera.Strafe(6.0f * dt);
+
+    XMFLOAT3 newPos = mCamera.GetPosition3f();
+
+    if (CheckCollision(newPos, mCollisionRadius))
+    {
+        mCamera.SetPosition(oldPos.x, oldPos.y, oldPos.z);
+    }
 }
 
+
+
+bool ShapesApp::CheckCollision(const DirectX::XMFLOAT3& position, float radius)
+{
+    XMVECTOR pos = XMLoadFloat3(&position);
+
+    for (const auto& box : mMazeWallBounds)
+    {
+        XMVECTOR boxCenter = XMLoadFloat3(&box.Center);
+        XMVECTOR boxExtents = XMLoadFloat3(&box.Extents);
+
+        XMVECTOR closestPoint = XMVectorClamp(
+            pos,
+            XMVectorSubtract(boxCenter, boxExtents),
+            XMVectorAdd(boxCenter, boxExtents));
+
+        XMVECTOR delta = XMVectorSubtract(closestPoint, pos);
+        float distance = XMVectorGetX(XMVector3Length(delta));
+
+        if (distance < radius)
+            return true;
+    }
+
+    return false;
+}
 
 void ShapesApp::UpdateObjectCBs(const GameTimer& gt)
 {
@@ -688,6 +726,134 @@ void ShapesApp::BuildShapeGeometry()
     mGeometries[geo->Name] = std::move(geo);
 }
 
+
+void ShapesApp::BuildMazeGeometry()
+{
+    GeometryGenerator geoGen;
+
+    mMazeWallBounds.clear();
+
+    std::vector<Vertex> allVertices;
+    std::vector<std::uint16_t> allIndices;
+    UINT vertexOffset = 0;
+
+    // 🔥 SENIN MAZE (image'den uyarlanmış)
+    const int maze[15][15] =
+    {
+        {1,1,1,1,1,1,1,1,1,0,1,1,1,1,1},
+        {1,0,0,0,1,0,0,0,0,0,1,0,0,0,1},
+        {1,0,1,0,1,0,1,1,1,0,1,1,1,0,1},
+        {1,0,1,0,0,0,1,0,0,0,0,0,1,0,1},
+        {1,0,1,1,1,0,1,0,1,1,1,0,1,0,1},
+        {1,0,0,0,1,0,0,0,1,0,0,0,1,0,1},
+        {1,1,1,0,1,1,1,0,1,0,1,1,1,0,1},
+        {1,0,0,0,0,0,1,0,0,0,1,0,0,0,1},
+        {1,0,1,1,1,0,1,1,1,0,1,0,1,1,1},
+        {1,0,1,0,0,0,0,0,1,0,1,0,0,0,0},
+        {1,0,1,0,1,1,1,0,1,1,1,1,1,0,1},
+        {1,0,0,0,1,0,0,0,1,0,0,0,1,0,1},
+        {1,1,1,0,1,1,1,1,1,1,1,0,1,0,1},
+        {1,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
+        {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1}
+    };
+
+    const int rows = 15;
+    const int cols = 15;
+
+    float cellSize = 3.0f;     // 🟢 maze büyüklüğü
+    float wallHeight = 7.0f;
+    float wallThickness = 1.0f;
+
+    float startX = -25.0f;     // 🟢 KONUM (castle arkasına göre ayarlı)
+    float startZ = -40.0f;
+
+    auto addWall = [&](float x, float z)
+        {
+            float groundY = -0.5f;
+
+            DirectX::BoundingBox box;
+            box.Center = XMFLOAT3(x, groundY + wallHeight * 0.5f, z);
+            box.Extents = XMFLOAT3(cellSize * 0.5f, wallHeight * 0.5f, cellSize * 0.5f);
+            mMazeWallBounds.push_back(box);
+
+            auto cube = geoGen.CreateBox(cellSize, wallHeight, cellSize, 0);
+
+            for (auto& v : cube.Vertices)
+            {
+                Vertex vert;
+                vert.Pos = XMFLOAT3(
+                    v.Position.x + x,
+                    v.Position.y + groundY + wallHeight * 0.5f,
+                    v.Position.z + z
+                );
+                vert.Normal = v.Normal;
+                vert.TexC = v.TexC;
+                allVertices.push_back(vert);
+            }
+
+            for (auto idx : cube.Indices32)
+            {
+                allIndices.push_back((std::uint16_t)(vertexOffset + idx));
+            }
+
+            vertexOffset += (UINT)cube.Vertices.size();
+        };
+
+    // 🔥 GRID LOOP
+    for (int r = 0; r < rows; r++)
+    {
+        for (int c = 0; c < cols; c++)
+        {
+            if (maze[r][c] == 1)
+            {
+                float x = startX + c * cellSize;
+                float z = startZ + r * cellSize;
+                addWall(x, z);
+            }
+        }
+    }
+
+    const UINT vbByteSize = (UINT)allVertices.size() * sizeof(Vertex);
+    const UINT ibByteSize = (UINT)allIndices.size() * sizeof(std::uint16_t);
+
+    auto geo = std::make_unique<MeshGeometry>();
+    geo->Name = "mazeGeo";
+
+    ThrowIfFailed(D3DCreateBlob(vbByteSize, &geo->VertexBufferCPU));
+    CopyMemory(geo->VertexBufferCPU->GetBufferPointer(), allVertices.data(), vbByteSize);
+
+    ThrowIfFailed(D3DCreateBlob(ibByteSize, &geo->IndexBufferCPU));
+    CopyMemory(geo->IndexBufferCPU->GetBufferPointer(), allIndices.data(), ibByteSize);
+
+    geo->VertexBufferGPU = d3dUtil::CreateDefaultBuffer(
+        md3dDevice.Get(),
+        mCommandList.Get(),
+        allVertices.data(),
+        vbByteSize,
+        geo->VertexBufferUploader);
+
+    geo->IndexBufferGPU = d3dUtil::CreateDefaultBuffer(
+        md3dDevice.Get(),
+        mCommandList.Get(),
+        allIndices.data(),
+        ibByteSize,
+        geo->IndexBufferUploader);
+
+    geo->VertexByteStride = sizeof(Vertex);
+    geo->VertexBufferByteSize = vbByteSize;
+    geo->IndexFormat = DXGI_FORMAT_R16_UINT;
+    geo->IndexBufferByteSize = ibByteSize;
+
+    SubmeshGeometry submesh;
+    submesh.IndexCount = (UINT)allIndices.size();
+    submesh.StartIndexLocation = 0;
+    submesh.BaseVertexLocation = 0;
+
+    geo->DrawArgs["mazeWalls"] = submesh;
+
+    mGeometries["mazeGeo"] = std::move(geo);
+}
+
 void ShapesApp::BuildMaterials()
 {
     auto grass = std::make_unique<Material>();
@@ -751,10 +917,17 @@ void ShapesApp::BuildRenderItems()
     gridRitem->Mat = mMaterials["grass"].get();
     mAllRitems.push_back(std::move(gridRitem));
 
+    XMMATRIX castleRot = XMMatrixRotationY(XMConvertToRadians(180.0f));
+
     auto AddItem = [&](const std::string& key, const XMMATRIX& world, const std::string& matName)
         {
             auto r = std::make_unique<RenderItem>();
-            XMStoreFloat4x4(&r->World, world);
+
+            // 🔥 TÜM KALEYE TEK NOKTADAN ROTATION
+            XMMATRIX finalWorld = world * castleRot;
+
+            XMStoreFloat4x4(&r->World, finalWorld);
+
             r->ObjCBIndex = objCBIndex++;
             r->Geo = mGeometries["shapeGeo"].get();
             r->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
@@ -762,15 +935,16 @@ void ShapesApp::BuildRenderItems()
             r->StartIndexLocation = r->Geo->DrawArgs[key].StartIndexLocation;
             r->BaseVertexLocation = r->Geo->DrawArgs[key].BaseVertexLocation;
             r->Mat = mMaterials[matName].get();
+
             mAllRitems.push_back(std::move(r));
         };
 
     const float castleX = 0.0f;
-    const float castleZ = 15.0f;
+    const float castleZ = -30.0f;
     const float castleCenterX = castleX;
     const float castleCenterZ = castleZ;
-    const float uW = 60.0f;
-    const float uD = 80.0f;
+    const float uW = 50.0f;
+    const float uD = 30.0f;
     const float wallH = 16.0f;
     const float wallT = 1.2f;
     const float wallY = wallH * 0.5f;
@@ -877,8 +1051,8 @@ void ShapesApp::BuildRenderItems()
     AddDiamondOnCone(TRx, frontZ2);
 
     {
-        const float fountainX = castleCenterX;
-        const float fountainZ = zBack - 25.0f;
+        const float fountainX = 0;
+        const float fountainZ =  50.0f;
 
         const float bowl1Major = 8.0f;
         const float bowl2Major = 5.5f;
@@ -989,6 +1163,17 @@ void ShapesApp::BuildRenderItems()
         AddItem("wedge", W, "stone");
     }
     AddItem("box", XMMatrixScaling(90.0f, 0.2f, 130.0f) * XMMatrixTranslation(0.0f, -0.15f, 0.0f), "water");
+
+    auto mazeRitem = std::make_unique<RenderItem>();
+    mazeRitem->World = MathHelper::Identity4x4();
+    mazeRitem->ObjCBIndex = objCBIndex++;
+    mazeRitem->Geo = mGeometries["mazeGeo"].get();
+    mazeRitem->Mat = mMaterials["stone"].get();
+    mazeRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+    mazeRitem->IndexCount = mazeRitem->Geo->DrawArgs["mazeWalls"].IndexCount;
+    mazeRitem->StartIndexLocation = mazeRitem->Geo->DrawArgs["mazeWalls"].StartIndexLocation;
+    mazeRitem->BaseVertexLocation = mazeRitem->Geo->DrawArgs["mazeWalls"].BaseVertexLocation;
+    mAllRitems.push_back(std::move(mazeRitem));
 
 
     for (auto& e : mAllRitems)
