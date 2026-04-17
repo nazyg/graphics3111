@@ -1067,7 +1067,7 @@ void ShapesApp::BuildRenderItems()
         {
             auto r = std::make_unique<RenderItem>();
 
-            // 🔥 TÜM KALEYE TEK NOKTADAN ROTATION
+            //  TÜM KALEYE TEK NOKTADAN ROTATION
             XMMATRIX finalWorld = world * castleRot;
 
             XMStoreFloat4x4(&r->World, finalWorld);
