@@ -166,8 +166,11 @@ bool ShapesApp::Initialize()
     mStartZ = (zFront + innerCenterZ) * 0.5f;
     mStartY = 4.0f;
 
-   
-    const XMFLOAT3 fountainPos = { 0.0f, 0.0f, 50.0f };
+    mCamera.LookAt(
+        XMFLOAT3(mStartX, mStartY, mStartZ),
+        XMFLOAT3(mStartX, mStartY, mStartZ - 1.0f),
+        XMFLOAT3(0.0f, 1.0f, 0.0f));
+    mCamera.Walk(100.0f);
     ThrowIfFailed(mCommandList->Close());
     ID3D12CommandList* cmdsLists[] = { mCommandList.Get() };
     mCommandQueue->ExecuteCommandLists(_countof(cmdsLists), cmdsLists);
@@ -432,7 +435,90 @@ void ShapesApp::UpdateMainPassCB(const GameTimer& gt)
     mMainPassCB.Lights[5].FalloffStart = 0.5f;
     mMainPassCB.Lights[5].FalloffEnd = 4.0f;
     auto currPassCB = mCurrFrameResource->PassCB.get();
+
+    // Maze corner lights
+    mMainPassCB.Lights[6].Position = { -28.0f, 3.0f, -43.0f };
+    mMainPassCB.Lights[6].Strength = { 1.0f, 0.2f, 0.2f };   // red
+    mMainPassCB.Lights[6].FalloffStart = 1.0f;
+    mMainPassCB.Lights[6].FalloffEnd = 18.0f;
+
+    mMainPassCB.Lights[7].Position = { 20.0f, 3.0f, -43.0f };
+    mMainPassCB.Lights[7].Strength = { 0.2f, 0.4f, 1.0f };   // blue
+    mMainPassCB.Lights[7].FalloffStart = 1.0f;
+    mMainPassCB.Lights[7].FalloffEnd = 18.0f;
+
+    mMainPassCB.Lights[8].Position = { -28.0f, 3.0f, 5.0f };
+    mMainPassCB.Lights[8].Strength = { 0.8f, 0.2f, 1.0f };   // purple
+    mMainPassCB.Lights[8].FalloffStart = 1.0f;
+    mMainPassCB.Lights[8].FalloffEnd = 18.0f;
+
+    mMainPassCB.Lights[9].Position = { 20.0f, 3.0f, 5.0f };
+    mMainPassCB.Lights[9].Strength = { 0.2f, 1.0f, 1.0f };   // cyan
+    mMainPassCB.Lights[9].FalloffStart = 1.0f;
+    mMainPassCB.Lights[9].FalloffEnd = 18.0f;
+
+    // Castle corner lights
+    mMainPassCB.Lights[10].Position = { -27.0f, 8.0f, 17.0f };
+    mMainPassCB.Lights[10].Strength = { 1.0f, 0.5f, 0.2f };   // orange
+    mMainPassCB.Lights[10].FalloffStart = 1.0f;
+    mMainPassCB.Lights[10].FalloffEnd = 20.0f;
+
+    mMainPassCB.Lights[11].Position = { 27.0f, 8.0f, 17.0f };
+    mMainPassCB.Lights[11].Strength = { 0.3f, 1.0f, 0.3f };   // green
+    mMainPassCB.Lights[11].FalloffStart = 1.0f;
+    mMainPassCB.Lights[11].FalloffEnd = 20.0f;
+
+    mMainPassCB.Lights[12].Position = { -27.0f, 8.0f, 43.0f };
+    mMainPassCB.Lights[12].Strength = { 1.0f, 0.2f, 0.8f };   // pink
+    mMainPassCB.Lights[12].FalloffStart = 1.0f;
+    mMainPassCB.Lights[12].FalloffEnd = 20.0f;
+
+    mMainPassCB.Lights[13].Position = { 27.0f, 8.0f, 43.0f };
+    mMainPassCB.Lights[13].Strength = { 1.0f, 1.0f, 0.2f };   // yellow
+    mMainPassCB.Lights[13].FalloffStart = 1.0f;
+    mMainPassCB.Lights[13].FalloffEnd = 20.0f;
     currPassCB->CopyData(0, mMainPassCB);
+
+    // STRONG WHITE LIGHT (castle interior)
+    mMainPassCB.Lights[14].Position = { 0.0f, 6.0f, -15.0f };
+    mMainPassCB.Lights[14].Strength = { 2.5f, 2.5f, 2.5f };
+    mMainPassCB.Lights[14].FalloffStart = 0.5f;
+    mMainPassCB.Lights[14].FalloffEnd = 10.0f;
+    int lightIndex = 6;
+    int maxLights = 16;
+
+    // MAZE lights (grid system)
+    for (int x = -25; x < 20; x += 10)
+    {
+        for (int z = -40; z < 10; z += 10)
+        {
+            if (lightIndex >= maxLights)
+                break;
+
+            mMainPassCB.Lights[lightIndex].Position = { (float)x, 3.0f, (float)z };
+
+            // random color
+            float r = (rand() % 100) / 100.0f;
+            float g = (rand() % 100) / 100.0f;
+            float b = (rand() % 100) / 100.0f;
+
+            mMainPassCB.Lights[lightIndex].Strength = { r, g, b };
+
+            mMainPassCB.Lights[lightIndex].FalloffStart = 1.0f;
+            mMainPassCB.Lights[lightIndex].FalloffEnd = 15.0f;
+
+            lightIndex++;
+        }
+    }
+    if (lightIndex < maxLights)
+    {
+        mMainPassCB.Lights[lightIndex].Position = { 0.0f, 6.0f, -15.0f };
+        mMainPassCB.Lights[lightIndex].Strength = { 2.5f, 2.2f, 2.0f };
+        mMainPassCB.Lights[lightIndex].FalloffStart = 0.5f;
+        mMainPassCB.Lights[lightIndex].FalloffEnd = 12.0f;
+
+        lightIndex++;
+    }
 }
 void ShapesApp::UpdateMaterialCBs(const GameTimer& gt)
 {
@@ -620,7 +706,38 @@ void ShapesApp::BuildShapeGeometry()
     {
         vertices[k].Pos = box.Vertices[i].Position;
         vertices[k].Normal = box.Vertices[i].Normal;
-        vertices[k].TexC = box.Vertices[i].TexC;
+
+        float localX = box.Vertices[i].Position.x;
+        float localY = box.Vertices[i].Position.y;
+        float localZ = box.Vertices[i].Position.z;
+
+        float texScaleSide = 1.0f;
+        float texScaleTop = 0.4f;
+
+        if (fabs(box.Vertices[i].Normal.y) > 0.9f)
+        {
+            // top / bottom
+            vertices[k].TexC = XMFLOAT2(
+                localX * texScaleTop + 0.5f,
+                localZ * texScaleTop + 0.5f
+            );
+        }
+        else if (fabs(box.Vertices[i].Normal.x) > 0.9f)
+        {
+            // left / right
+            vertices[k].TexC = XMFLOAT2(
+                localZ * texScaleSide + 0.5f,
+                localY * texScaleSide + 0.5f
+            );
+        }
+        else
+        {
+            // front / back
+            vertices[k].TexC = XMFLOAT2(
+                localX * texScaleSide + 0.5f,
+                localY * texScaleSide + 0.5f
+            );
+        }
     }
     for (size_t i = 0; i < grid.Vertices.size(); ++i, ++k)
     {
@@ -781,13 +898,32 @@ void ShapesApp::BuildMazeGeometry()
             for (auto& v : cube.Vertices)
             {
                 Vertex vert;
-                vert.Pos = XMFLOAT3(
-                    v.Position.x + x,
-                    v.Position.y + groundY + wallHeight * 0.5f,
-                    v.Position.z + z
-                );
+
+                float worldX = v.Position.x + x;
+                float worldY = v.Position.y + groundY + wallHeight * 0.5f;
+                float worldZ = v.Position.z + z;
+
+                vert.Pos = XMFLOAT3(worldX, worldY, worldZ);
                 vert.Normal = v.Normal;
-                vert.TexC = v.TexC;
+
+                float texScale = 0.2f;
+
+                if (fabs(v.Normal.y) > 0.9f)
+                {
+                    // top / bottom faces
+                    vert.TexC = XMFLOAT2(worldX * texScale, worldZ * texScale);
+                }
+                else if (fabs(v.Normal.x) > 0.9f)
+                {
+                    // left / right faces
+                    vert.TexC = XMFLOAT2(worldZ * texScale, worldY * texScale);
+                }
+                else
+                {
+                    // front / back faces
+                    vert.TexC = XMFLOAT2(worldX * texScale, worldY * texScale);
+                }
+
                 allVertices.push_back(vert);
             }
 
